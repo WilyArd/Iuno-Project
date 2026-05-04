@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Iuno IoT Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400&amp;family=Space+Grotesk:wght@600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#6a5f00",
+                        "inverse-on-surface": "#f0f1f1",
+                        "on-secondary-fixed-variant": "#0035be",
+                        "on-primary-fixed-variant": "#504700",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f9f9f9",
+                        "surface-bright": "#f9f9f9",
+                        "tertiary-fixed-dim": "#c6c6c6",
+                        "primary-fixed": "#fde400",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#e2e2e2",
+                        "secondary-fixed": "#dde1ff",
+                        "surface-container-highest": "#e2e2e2",
+                        "primary-container": "#ffe600",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed": "#1b1b1b",
+                        "error": "#ba1a1a",
+                        "outline-variant": "#cdc7aa",
+                        "background": "#f9f9f9",
+                        "surface-variant": "#e2e2e2",
+                        "secondary-container": "#2e5bff",
+                        "on-secondary-container": "#efefff",
+                        "on-error": "#ffffff",
+                        "on-surface": "#1a1c1c",
+                        "on-error-container": "#93000a",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#474747",
+                        "tertiary": "#5e5e5e",
+                        "primary-fixed-dim": "#dec800",
+                        "surface-tint": "#6a5f00",
+                        "on-surface-variant": "#4b4731",
+                        "surface-container-low": "#f3f3f4",
+                        "surface-dim": "#dadada",
+                        "secondary-fixed-dim": "#b8c3ff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container": "#eeeeee",
+                        "inverse-primary": "#dec800",
+                        "inverse-surface": "#2f3131",
+                        "secondary": "#0040e0",
+                        "outline": "#7c775f",
+                        "on-background": "#1a1c1c",
+                        "tertiary-container": "#e4e4e4",
+                        "on-tertiary-container": "#656565",
+                        "on-primary-container": "#726600",
+                        "on-primary-fixed": "#201c00",
+                        "surface-container-high": "#e8e8e8",
+                        "on-secondary-fixed": "#001356",
+                        "iuno-green": "#00E676"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "8px",
+                        "gutter": "24px",
+                        "margin": "32px",
+                        "container-padding": "24px",
+                        "border-width": "3px",
+                        "shadow-offset": "6px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Lexend"],
+                        "headline-xl": ["Space Grotesk"],
+                        "body-md": ["Lexend"],
+                        "headline-md": ["Space Grotesk"],
+                        "label-bold": ["Space Grotesk"],
+                        "headline-lg": ["Space Grotesk"],
+                        "data-display": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "headline-xl": ["48px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "1.2", "fontWeight": "600" }],
+                        "label-bold": ["14px", { "lineHeight": "1", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                        "data-display": ["40px", { "lineHeight": "1", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #f9f9f9; }
+        .neubrutal-border { border: 3px solid #1a1c1c; }
+        .neubrutal-shadow { box-shadow: 6px 6px 0px 0px #1a1c1c; }
+        .neubrutal-shadow-sm { box-shadow: 4px 4px 0px 0px #1a1c1c; }
+        .neubrutal-hover:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0px 0px #1a1c1c; }
+        .neubrutal-active:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0px 0px #1a1c1c; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="text-on-background font-body-md min-h-screen flex flex-col pb-20 md:pb-0 md:pl-80 pt-16">
+<!-- TopAppBar (Web & Mobile) -->
+<header class="bg-white dark:bg-zinc-900 text-[#FFE600] font-['Space_Grotesk'] font-black uppercase tracking-tighter border-b-[3px] border-black shadow-[0px_4px_0px_0px_rgba(0,0,0,1)] sticky top-0 z-50 flex items-center justify-between px-6 w-full fixed md:hidden h-16">
+<button class="text-black dark:text-white active:translate-y-1">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">sensors</span>
+</button>
+<div class="font-black text-black dark:text-white italic"><img alt="IUNO Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ugaWHSlJ9MKLmgZVzZZsMslCcPgkaOP72sAzuYQxc1eQ7N-56yJCdzcaqTorLybuG1YC8XyOJzbjYFpWLY7chRaFncx-6QbkvQHKwjlx2S117Yo_KQCQRgJRtu-vJU7S3eyR2efAb7Zuh7h8CnTZpS-O086WGn7Wqh85cgi6h9oHHpqYhEZtCdwmg6gKaKhEt4XaylyVXi1A7CPNki5GGmr8Fb11lT38CvbCXvGNDBOoOkehwEHROGj-cI"/></div>
+<button class="text-black dark:text-white active:translate-y-1">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</header>
+<!-- NavigationDrawer (Web Only) -->
+<nav class="bg-white dark:bg-zinc-900 text-[#FFE600] font-['Space_Grotesk'] font-bold border-r-[3px] border-black dark:border-white h-full w-80 shadow-[6px_0px_0px_0px_rgba(0,0,0,1)] fixed left-0 top-0 flex flex-col z-40 bg-white hidden md:flex pt-8 px-4">
+<div class="text-2xl font-black border-b-[3px] border-black pb-2 mb-4 text-black text-4xl italic px-2"><img alt="IUNO Logo" class="h-16 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ugaWHSlJ9MKLmgZVzZZsMslCcPgkaOP72sAzuYQxc1eQ7N-56yJCdzcaqTorLybuG1YC8XyOJzbjYFpWLY7chRaFncx-6QbkvQHKwjlx2S117Yo_KQCQRgJRtu-vJU7S3eyR2efAb7Zuh7h8CnTZpS-O086WGn7Wqh85cgi6h9oHHpqYhEZtCdwmg6gKaKhEt4XaylyVXi1A7CPNki5GGmr8Fb11lT38CvbCXvGNDBOoOkehwEHROGj-cI"/></div>
+<div class="flex items-center gap-4 px-2 py-4 border-b-[3px] border-black mb-6">
+<div class="w-12 h-12 rounded-full neubrutal-border overflow-hidden bg-primary-container shrink-0">
+<img alt="System Admin avatar" class="w-full h-full object-cover" data-alt="A stylized, high-contrast portrait of a tech administrator in a bright, modern control room setting. The lighting is crisp and the mood is focused and professional, fitting a high-end Neubrutalist dashboard aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADgFsfXk2zsGlAM-phmijX4DVRALLEBMHwjVmsVHbsfodu_LIf_PZgFLcXOpK4eAU93wHByk7RFV_qDFKP9llknCDf61zEipdopEIowSC7PAxJhgSQ-BwrVXqnabz9L48f8lMRh61uHADbHx12jvIplkDH5XBiPnGclphprHERh8cr5lZLWBZ52y42FVZiZ3zgiANOn9_oODMpf6mVSzB0hzoplBh05jW7ZSDRtaXOM5DNbXcb9Y6MkEK1rMurJNX801G2jf7t9mo"/>
+</div>
+<div>
+<div class="font-headline-md text-on-surface">IUNO_ADMIN_01</div>
+<div class="font-label-bold text-iuno-green flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-iuno-green inline-block"></span> System Online</div>
+<div class="text-xs text-on-surface-variant font-body-md mt-1">v2.4.0</div>
+</div>
+</div>
+<div class="flex flex-col gap-2 flex-grow">
+<!-- Active Tab -->
+<a class="bg-[#FFE600] text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] my-1 mx-2 p-3 flex items-center gap-3 active:translate-x-0 transition-transform" href="#">
+<span class="material-symbols-outlined">hub</span>
+<span>Main Hub</span>
+</a>
+<a class="text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 my-1 mx-2 border-[3px] border-transparent p-3 flex items-center gap-3 hover:border-black hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">memory</span>
+<span>Hardware Status</span>
+</a>
+<a class="text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 my-1 mx-2 border-[3px] border-transparent p-3 flex items-center gap-3 hover:border-black hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">security</span>
+<span>Security Logs</span>
+</a>
+<a class="text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 my-1 mx-2 border-[3px] border-transparent p-3 flex items-center gap-3 hover:border-black hover:translate-x-1 transition-transform" href="#">
+<span class="material-symbols-outlined">key</span>
+<span>API Keys</span>
+</a>
+<a class="text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 my-1 mx-2 border-[3px] border-transparent p-3 flex items-center gap-3 hover:border-black hover:translate-x-1 transition-transform mt-auto mb-4" href="#">
+<span class="material-symbols-outlined">help_center</span>
+<span>Support</span>
+</a>
+</div>
+</nav>
+<!-- Main Canvas -->
+<main class="flex-grow md:p-gutter max-w-7xl mx-auto w-full p-4">
+<!-- Status Header -->
+<div class="flex items-center justify-between border-b-[3px] border-black mb-4 pb-2">
+<h1 class="text-on-surface">Main Hub</h1>
+<div class="bg-surface-container-lowest neubrutal-border neubrutal-shadow-sm px-4 py-2 flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-iuno-green animate-pulse"></div>
+<span class="font-label-bold text-on-surface uppercase tracking-wider">CONNECTED</span>
+</div>
+</div>
+<!-- Sensor Data Section -->
+<section class="mb-12">
+<h2 class="font-headline-lg text-on-surface mb-6 uppercase">Data Sensor</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- SUHU Card -->
+<div class="bg-surface-container-lowest neubrutal-border neubrutal-shadow p-6 flex flex-col relative overflow-hidden transition-transform neubrutal-hover group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-container rounded-bl-full opacity-20 -mr-10 -mt-10 group-hover:scale-110 transition-transform"></div>
+<div class="flex items-center justify-between mb-8 relative z-10 border-b-[3px] border-black pb-4">
+<h3 class="font-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container text-3xl">thermostat</span>
+                            SUHU
+                        </h3>
+<div class="bg-primary-container neubrutal-border px-2 py-1 font-label-bold text-on-surface">LIVE</div>
+</div>
+<div class="flex-grow flex items-end justify-between relative z-10">
+<div class="font-data-display text-on-surface text-6xl tracking-tighter">28.40<span class="text-3xl ml-1 text-primary-fixed-dim">°C</span></div>
+<div class="flex flex-col items-end">
+<span class="font-label-bold text-on-surface-variant mb-1">TARGET: 24°C</span>
+<span class="text-error font-label-bold flex items-center"><span class="material-symbols-outlined text-sm mr-1">arrow_upward</span> +4.40°C</span>
+</div>
+</div>
+</div>
+<!-- KELEMBABAN Card -->
+<div class="bg-surface-container-lowest neubrutal-border neubrutal-shadow p-6 flex flex-col relative overflow-hidden transition-transform neubrutal-hover group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-secondary-container rounded-bl-full opacity-20 -mr-10 -mt-10 group-hover:scale-110 transition-transform"></div>
+<div class="flex items-center justify-between mb-8 relative z-10 border-b-[3px] border-black pb-4">
+<h3 class="font-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-3xl">water_drop</span>
+                            KELEMBABAN
+                        </h3>
+<div class="bg-secondary-container text-on-secondary-container neubrutal-border px-2 py-1 font-label-bold">LIVE</div>
+</div>
+<div class="flex-grow flex items-end justify-between relative z-10">
+<div class="font-data-display text-on-surface text-6xl tracking-tighter">86.00<span class="text-3xl ml-1 text-secondary">%</span></div>
+<div class="flex flex-col items-end">
+<span class="font-label-bold text-on-surface-variant mb-1">TARGET: 60%</span>
+<span class="text-error font-label-bold flex items-center"><span class="material-symbols-outlined text-sm mr-1">arrow_upward</span> +26%</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="bg-white dark:bg-zinc-900 text-[#FFE600] font-['Space_Grotesk'] font-bold text-xs uppercase border-t-[3px] border-black dark:border-white shadow-[0px_-4px_0px_0px_rgba(0,0,0,1)] fixed bottom-0 left-0 w-full h-20 flex justify-around items-center px-4 pb-safe z-50 md:hidden">
+<a class="bg-[#FFE600] text-black border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] -translate-y-1 mx-2 p-2 flex flex-col items-center justify-center flex-1 active:shadow-none active:translate-y-0 transition-all" href="#">
+<span class="material-symbols-outlined mb-1">router</span>
+<span>DEVICES</span>
+</a>
+<a class="text-black dark:text-white p-2 opacity-70 hover:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex flex-col items-center justify-center flex-1 transition-all" href="#">
+<span class="material-symbols-outlined mb-1">leaderboard</span>
+<span>ANALYTICS</span>
+</a>
+<a class="text-black dark:text-white p-2 opacity-70 hover:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex flex-col items-center justify-center flex-1 transition-all" href="#">
+<span class="material-symbols-outlined mb-1">dynamic_feed</span>
+<span>SCENES</span>
+</a>
+<a class="text-black dark:text-white p-2 opacity-70 hover:opacity-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex flex-col items-center justify-center flex-1 transition-all" href="#">
+<span class="material-symbols-outlined mb-1">settings_input_component</span>
+<span>SYSTEM</span>
+</a>
+</nav>
+</body></html>
