@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../controllers/dashboard_controller.dart';
+import '../models/device_widget_model.dart';
 
 class DashboardView extends StatelessWidget {
   DashboardView({super.key});
@@ -62,9 +63,7 @@ class DashboardView extends StatelessWidget {
                             height: 12,
                             decoration: BoxDecoration(
                               color: controller.isConnecting.value
-                                  ? const Color(
-                                      0xFFFFE600,
-                                    ) // Yellow for connecting
+                                  ? const Color(0xFFFFE600) // Yellow for connecting
                                   : (controller.isDeviceConnected.value
                                         ? const Color(0xFF00E676)
                                         : const Color(0xFFBA1A1A)),
@@ -95,7 +94,7 @@ class DashboardView extends StatelessWidget {
           ),
 
           Text(
-            'DATA SENSOR',
+            'DEVICES',
             style: GoogleFonts.spaceGrotesk(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -104,28 +103,39 @@ class DashboardView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // Suhu Card
-          _buildNeubrutalCard(
-            title: 'SUHU',
-            rxValue: controller.temperature,
-            targetValue: controller.targetTemperature,
-            unit: '°C',
-            icon: Icons.thermostat,
-            iconColor: const Color(0xFFDEC800), // Darker yellow for text
-            accentColor: const Color(0xFFFFE600), // Primary container yellow
-          ),
+          // Dynamic Devices
+          Obx(() {
+            if (controller.devices.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Center(
+                  child: Text(
+                    'No devices discovered yet.\nWaiting for MQTT Auto-Discovery...',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 16,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
+              );
+            }
 
-          // Kelembaban Card
-          _buildNeubrutalCard(
-            title: 'KELEMBABAN',
-            rxValue: controller.humidity,
-            targetValue: controller.targetHumidity,
-            unit: '%',
-            icon: Icons.water_drop,
-            iconColor: const Color(0xFF0040E0), // Secondary blue
-            accentColor: const Color(0xFF2E5BFF), // Secondary container
-            isLightAccent: false,
-          ),
+            return Wrap(
+              spacing: 24,
+              runSpacing: 24,
+              children: controller.devices.map((device) {
+                if (device.type == 'sensor') {
+                  return _buildSensorCard(device);
+                } else if (device.type == 'switch') {
+                  return _buildSwitchCard(device);
+                } else if (device.type == 'button') {
+                  return _buildButtonCard(device);
+                }
+                return const SizedBox.shrink();
+              }).toList(),
+            );
+          }),
 
           const SizedBox(height: 80), // Padding for Bottom Navigation
         ],
@@ -133,18 +143,142 @@ class DashboardView extends StatelessWidget {
     );
   }
 
-  Widget _buildNeubrutalCard({
+  Widget _buildSensorCard(DeviceWidgetModel device) {
+    return _buildBaseCard(
+      title: device.name.toUpperCase(),
+      icon: Icons.sensors,
+      iconColor: const Color(0xFF0040E0),
+      accentColor: const Color(0xFF2E5BFF),
+      isLightAccent: false,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Obx(
+            () => Text(
+              device.value.value == '--' ? '00.0' : device.value.value,
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 48,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+                letterSpacing: -2,
+                height: 1,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 4.0),
+            child: Text(
+              device.unit,
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0040E0),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSwitchCard(DeviceWidgetModel device) {
+    return _buildBaseCard(
+      title: device.name.toUpperCase(),
+      icon: Icons.toggle_on,
+      iconColor: const Color(0xFFDEC800),
+      accentColor: const Color(0xFFFFE600),
+      isLightAccent: true,
+      child: Obx(() {
+        bool isOn = device.value.value.toLowerCase() == 'on';
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              isOn ? 'ON' : 'OFF',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 40,
+                fontWeight: FontWeight.w900,
+                color: isOn ? const Color(0xFF00E676) : Colors.black54,
+              ),
+            ),
+            Switch(
+              value: isOn,
+              onChanged: (val) {
+                // Optimistic UI update
+                device.value.value = val ? 'ON' : 'OFF';
+                // Send MQTT command
+                controller.sendCommand(device, val ? 'ON' : 'OFF');
+              },
+              activeColor: Colors.black,
+              activeTrackColor: const Color(0xFFFFE600),
+              inactiveThumbColor: Colors.white,
+              inactiveTrackColor: Colors.grey[400],
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildButtonCard(DeviceWidgetModel device) {
+    return _buildBaseCard(
+      title: device.name.toUpperCase(),
+      icon: Icons.touch_app,
+      iconColor: const Color(0xFFBA1A1A),
+      accentColor: const Color(0xFFFF4040),
+      isLightAccent: false,
+      child: GestureDetector(
+        onTap: () {
+          // Send MQTT command 'PRESS'
+          controller.sendCommand(device, 'PRESS');
+          
+          // Visual feedback
+          Get.snackbar(
+            'Command Sent',
+            '${device.name} pressed.',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 1),
+          );
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            border: Border.all(color: Colors.black, width: 3),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.grey,
+                offset: Offset(4, 4),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              'PRESS',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBaseCard({
     required String title,
-    required RxString rxValue,
-    required RxDouble targetValue,
-    required String unit,
     required IconData icon,
     required Color iconColor,
     required Color accentColor,
-    bool isLightAccent = true,
+    required bool isLightAccent,
+    required Widget child,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 24),
+      // margin: const EdgeInsets.only(bottom: 24),
+      width: 300, // Fixed width for wrap layout
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: Colors.black, width: 3),
@@ -160,12 +294,12 @@ class DashboardView extends StatelessWidget {
             top: 0,
             right: 0,
             child: Container(
-              width: 120,
-              height: 120,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.2),
                 borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(120),
+                  bottomLeft: Radius.circular(100),
                 ),
               ),
             ),
@@ -190,138 +324,26 @@ class DashboardView extends StatelessWidget {
                         children: [
                           Icon(icon, color: iconColor, size: 28),
                           const SizedBox(width: 8),
-                          Text(
-                            title,
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black,
+                          Expanded(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                              ),
                             ),
                           ),
                         ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: accentColor,
-                          border: Border.all(color: Colors.black, width: 2),
-                        ),
-                        child: Text(
-                          'LIVE',
-                          style: GoogleFonts.spaceGrotesk(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: isLightAccent ? Colors.black : Colors.white,
-                          ),
-                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 32),
-                // Value
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Obx(
-                          () => Text(
-                            rxValue.value == '--' ? '00.0' : rxValue.value,
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 48,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black,
-                              letterSpacing: -2,
-                              height: 1,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 4.0),
-                          child: Text(
-                            unit,
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                              color: iconColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Obx(
-                          () => Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.auto_awesome,
-                                color: Color(0xFFBA1A1A),
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'AI TARGET: ${targetValue.value.toStringAsFixed(0)}$unit',
-                                style: GoogleFonts.spaceGrotesk(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFFBA1A1A),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Obx(() {
-                          if (rxValue.value == '--') {
-                            return const SizedBox(
-                              height: 16,
-                            ); // Reserve space when disconnected
-                          }
-
-                          double current =
-                              double.tryParse(rxValue.value) ?? 0.0;
-                          double diff = current - targetValue.value;
-                          bool isUp = diff >= 0;
-                          Color varianceColor = isUp
-                              ? const Color(0xFFBA1A1A)
-                              : const Color(0xFF00E676);
-                          IconData varianceIcon = isUp
-                              ? Icons.arrow_upward
-                              : Icons.arrow_downward;
-                          String sign = isUp ? '+' : '';
-
-                          return Row(
-                            children: [
-                              Icon(
-                                varianceIcon,
-                                color: varianceColor,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$sign${diff.toStringAsFixed(2)}$unit',
-                                style: GoogleFonts.spaceGrotesk(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: varianceColor,
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
-                  ],
-                ),
+                // Content
+                child,
               ],
             ),
           ),

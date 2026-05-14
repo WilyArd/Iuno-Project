@@ -66,32 +66,74 @@ class AnalyticsView extends StatelessWidget {
             ),
           ),
 
-          // Suhu Chart Card
-          _buildChartCard(
-            title: 'SUHU (°C)',
-            icon: Icons.thermostat,
-            iconColor: const Color(0xFFDEC800),
-            accentColor: const Color(0xFFFFE600),
-            lineColor: const Color(0xFFBA1A1A),
-            historyData: controller.temperatureHistory,
-            minY: 15,
-            maxY: 45,
-          ),
+          Obx(() {
+            final sensors = controller.devices.where((d) => d.type == 'sensor').toList();
+            if (sensors.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Text(
+                    'No sensors detected yet.',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
+              );
+            }
 
-          const SizedBox(height: 24),
+            return Column(
+              children: sensors.map((sensor) {
+                // Determine colors based on name or arbitrary logic
+                final isTemp = sensor.name.toLowerCase().contains('temp') || sensor.name.toLowerCase().contains('suhu');
+                final isHumid = sensor.name.toLowerCase().contains('hum') || sensor.name.toLowerCase().contains('kelembaban');
+                
+                final title = sensor.name.toUpperCase() + (sensor.unit.isNotEmpty ? ' (${sensor.unit})' : '');
+                final icon = isTemp ? Icons.thermostat : (isHumid ? Icons.water_drop : Icons.sensors);
+                final accentColor = isTemp ? const Color(0xFFFFE600) : (isHumid ? const Color(0xFF2E5BFF) : const Color(0xFF00E676));
+                final iconColor = isTemp ? const Color(0xFFDEC800) : (isHumid ? const Color(0xFF0040E0) : const Color(0xFF00C853));
+                final lineColor = isTemp ? const Color(0xFFBA1A1A) : (isHumid ? const Color(0xFF0040E0) : const Color(0xFF000000));
+                final isLightAccent = !isHumid;
 
-          // Kelembaban Chart Card
-          _buildChartCard(
-            title: 'KELEMBABAN (%)',
-            icon: Icons.water_drop,
-            iconColor: const Color(0xFF0040E0),
-            accentColor: const Color(0xFF2E5BFF),
-            lineColor: const Color(0xFF0040E0),
-            historyData: controller.humidityHistory,
-            minY: 0,
-            maxY: 100,
-            isLightAccent: false,
-          ),
+                // Adjust min/max based on known sensor types or history data
+                double minY = 0;
+                double maxY = 100;
+                if (isTemp) {
+                  minY = 15;
+                  maxY = 45;
+                }
+                
+                if (!isTemp && !isHumid && sensor.history.isNotEmpty) {
+                  // auto scale
+                  double min = sensor.history.first.y;
+                  double max = sensor.history.first.y;
+                  for (var spot in sensor.history) {
+                    if (spot.y < min) min = spot.y;
+                    if (spot.y > max) max = spot.y;
+                  }
+                  minY = (min - 10).clamp(0, double.infinity);
+                  maxY = max + 10;
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 24.0),
+                  child: _buildChartCard(
+                    title: title,
+                    icon: icon,
+                    iconColor: iconColor,
+                    accentColor: accentColor,
+                    lineColor: lineColor,
+                    historyData: sensor.history,
+                    minY: minY,
+                    maxY: maxY,
+                    isLightAccent: isLightAccent,
+                  ),
+                );
+              }).toList(),
+            );
+          }),
 
           const SizedBox(height: 80), // Padding for Bottom Navigation
         ],

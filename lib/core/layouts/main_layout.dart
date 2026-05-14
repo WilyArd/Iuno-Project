@@ -6,6 +6,10 @@ import '../../features/dashboard/views/dashboard_view.dart';
 import '../../features/analytics/views/analytics_view.dart';
 import '../../features/dashboard/controllers/dashboard_controller.dart';
 
+import '../../features/assistant/views/assistant_view.dart';
+import '../../features/system/views/system_view.dart';
+import '../../features/system/controllers/system_controller.dart';
+
 class MainLayoutController extends GetxController {
   var selectedIndex = 0.obs;
   late PageController pageController;
@@ -13,6 +17,8 @@ class MainLayoutController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // Register SystemController globally so AssistantController can find it
+    Get.put(SystemController());
     pageController = PageController(initialPage: selectedIndex.value);
   }
 
@@ -41,16 +47,180 @@ class MainLayout extends StatelessWidget {
 
   final MainLayoutController controller = Get.put(MainLayoutController());
 
-  // List of views
   final List<Widget> pages = [
     DashboardView(),
     AnalyticsView(),
-    const Center(child: Text("SCENES (Coming Soon)")),
-    const Center(child: Text("SYSTEM (Coming Soon)")),
+    AssistantView(),
+    SystemView(),
   ];
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9F9F9),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 800) {
+            return _buildDesktopLayout(context);
+          }
+          return _buildMobileLayout(context);
+        },
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout(BuildContext context) {
+    return Row(
+      children: [
+        // Sidebar
+        Container(
+          width: 250,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(right: BorderSide(color: Colors.black, width: 3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Logo
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.black, width: 3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.sensors, color: Colors.black, size: 32),
+                    const SizedBox(width: 12),
+                    Text(
+                      'IUNO',
+                      style: GoogleFonts.spaceGrotesk(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w900,
+                        fontStyle: FontStyle.italic,
+                        fontSize: 32,
+                        letterSpacing: -1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Nav Items
+              Expanded(
+                child: Obx(() => ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _buildSidebarItem(icon: Icons.router, label: 'DEVICES', index: 0),
+                    const SizedBox(height: 8),
+                    _buildSidebarItem(icon: Icons.leaderboard, label: 'ANALYTICS', index: 1),
+                    const SizedBox(height: 8),
+                    _buildSidebarItem(icon: Icons.smart_toy, label: 'AI ASSISTANT', index: 2),
+                    const SizedBox(height: 8),
+                    _buildSidebarItem(icon: Icons.settings, label: 'SYSTEM', index: 3),
+
+                  ],
+                )),
+              ),
+              // User / Device settings
+              GestureDetector(
+                onTap: () => _showDeviceBottomSheet(context),
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFE600),
+                    border: Border(top: BorderSide(color: Colors.black, width: 3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.settings_input_component, color: Colors.black),
+                      const SizedBox(width: 12),
+                      Text(
+                        'CONNECTION',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Main Content
+        Expanded(
+          child: Column(
+            children: [
+              // Top Bar
+              Container(
+                height: 80,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(bottom: BorderSide(color: Colors.black, width: 3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Icon(Icons.notifications_none, color: Colors.black, size: 28),
+                    const SizedBox(width: 24),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(Icons.person, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: PageView(
+                  controller: controller.pageController,
+                  onPageChanged: controller.onPageChanged,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: pages,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSidebarItem({required IconData icon, required String label, required int index}) {
+    final isActive = controller.selectedIndex.value == index;
+    return GestureDetector(
+      onTap: () => controller.changeTab(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.black : Colors.transparent,
+          border: Border.all(color: isActive ? Colors.black : Colors.transparent, width: 2),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: isActive ? Colors.white : Colors.black87),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: GoogleFonts.spaceGrotesk(
+                fontWeight: FontWeight.bold,
+                color: isActive ? Colors.white : Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
       appBar: PreferredSize(
@@ -103,8 +273,7 @@ class MainLayout extends StatelessWidget {
       body: PageView(
         controller: controller.pageController,
         onPageChanged: controller.onPageChanged,
-        physics:
-            const BouncingScrollPhysics(), // Menambahkan efek bounce saat di ujung
+        physics: const BouncingScrollPhysics(),
         children: pages,
       ),
       bottomNavigationBar: Container(
@@ -137,13 +306,13 @@ class MainLayout extends StatelessWidget {
                 isActive: controller.selectedIndex.value == 1,
               ),
               _buildBottomNavItem(
-                icon: Icons.dynamic_feed,
-                label: 'SCENES',
+                icon: Icons.smart_toy,
+                label: 'ASSISTANT',
                 index: 2,
                 isActive: controller.selectedIndex.value == 2,
               ),
               _buildBottomNavItem(
-                icon: Icons.settings_input_component,
+                icon: Icons.settings,
                 label: 'SYSTEM',
                 index: 3,
                 isActive: controller.selectedIndex.value == 3,

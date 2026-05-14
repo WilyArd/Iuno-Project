@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/services/mqtt_service.dart';
+import '../models/device_widget_model.dart';
 
 class DashboardController extends GetxController {
   final mqttService = MqttService();
@@ -11,18 +13,9 @@ class DashboardController extends GetxController {
   var isDeviceConnected = false.obs;
   var isConnecting = false.obs;
   var deviceName = "".obs;
-  var temperature = "--".obs;
-  var humidity = "--".obs;
 
-  // Target sensor data
-  var targetTemperature = 24.0.obs;
-  var targetHumidity = 60.0.obs;
-
-  // Historical data for charts
-  var temperatureHistory = <FlSpot>[].obs;
-  var humidityHistory = <FlSpot>[].obs;
-  int _tempCounter = 0;
-  int _humidCounter = 0;
+  // Dynamic devices list
+  var devices = <DeviceWidgetModel>[].obs;
 
   Timer? _esp32TimeoutTimer;
 
@@ -40,12 +33,7 @@ class DashboardController extends GetxController {
       isBrokerConnected.value = false;
       isDeviceConnected.value = false;
       deviceName.value = "";
-      temperature.value = "--";
-      humidity.value = "--";
-      temperatureHistory.clear();
-      humidityHistory.clear();
-      _tempCounter = 0;
-      _humidCounter = 0;
+      devices.clear();
     } else {
       // Manual connect
       if (isConnecting.value) return;
@@ -67,58 +55,51 @@ class DashboardController extends GetxController {
     if (brokerConnected) {
       isBrokerConnected.value = true;
 
-      mqttService.subscribe('+/sensor/suhu', (topic, message) {
-        String name = topic.split('/')[0].toUpperCase();
-        deviceName.value = '$name Sensor Node';
-        temperature.value = message;
-        _addHistoryData(temperatureHistory, message, true);
-        _resetEsp32Timeout();
-
-        // --- NATIVE AI INJECTION ---
-        double? currentSuhu = double.tryParse(message);
-        if (currentSuhu != null) {
-          double newTarget = _calculateTargetSuhu(currentSuhu);
-          targetTemperature.value = newTarget;
-          // Publish kembali ke MQTT agar hardware mendapat perintah
-          mqttService.publish('iuno/ai/target/suhu', newTarget.toString());
-        }
-      });
-
-      mqttService.subscribe('+/sensor/kelembaban', (topic, message) {
-        String name = topic.split('/')[0].toUpperCase();
-        deviceName.value = '$name Sensor Node';
-        humidity.value = message;
-        _addHistoryData(humidityHistory, message, false);
-        _resetEsp32Timeout();
-
-        // --- NATIVE AI INJECTION ---
-        double? currentKelembaban = double.tryParse(message);
-        if (currentKelembaban != null) {
-          double newTarget = _calculateTargetKelembaban(currentKelembaban);
-          targetHumidity.value = newTarget;
-          // Publish kembali ke MQTT agar hardware mendapat perintah
-          mqttService.publish(
-            'iuno/ai/target/kelembaban',
-            newTarget.toString(),
-          );
+      // Subscribe to discovery topic
+      mqttService.subscribe('iuno/+/discovery', (topic, message) {
+        try {
+          final data = jsonDecode(message);
+          _handleDiscovery(data);
+          _resetEsp32Timeout();
+        } catch (e) {
+          print('Error parsing discovery message: $e');
         }
       });
     }
   }
 
-  void _addHistoryData(RxList<FlSpot> history, String message, bool isTemp) {
+  void _handleDiscovery(Map<String, dynamic> data) {
+    final newDevice = DeviceWidgetModel.fromJson(data);
+    
+    // Check if device already exists
+    final index = devices.indexWhere((d) => d.id == newDevice.id);
+    if (index == -1) {
+      devices.add(newDevice);
+      
+      // Subscribe to its state topic
+      if (newDevice.stateTopic.isNotEmpty) {
+        mqttService.subscribe(newDevice.stateTopic, (topic, message) {
+          newDevice.value.value = message;
+          _addHistoryData(newDevice, message);
+          _resetEsp32Timeout();
+        });
+      }
+    } else {
+      // Update existing
+      devices[index] = newDevice;
+      // We don't re-subscribe here to avoid duplicates, assuming topic hasn't changed
+    }
+  }
+
+  void _addHistoryData(DeviceWidgetModel device, String message) {
+    if (device.type != 'sensor') return;
     double? val = double.tryParse(message);
     if (val != null) {
-      double x = isTemp ? _tempCounter.toDouble() : _humidCounter.toDouble();
-      history.add(FlSpot(x, val));
-      if (history.length > 100) {
-        history.removeAt(0);
+      device.history.add(FlSpot(device.historyCounter.toDouble(), val));
+      if (device.history.length > 100) {
+        device.history.removeAt(0);
       }
-      if (isTemp) {
-        _tempCounter++;
-      } else {
-        _humidCounter++;
-      }
+      device.historyCounter++;
     }
   }
 
@@ -129,14 +110,20 @@ class DashboardController extends GetxController {
     // Batalkan timer lama
     _esp32TimeoutTimer?.cancel();
 
-    // Buat timer baru untuk 5 detik (karena ESP32 kirim tiap 2 detik)
-    _esp32TimeoutTimer = Timer(const Duration(seconds: 5), () {
-      // Jika selama 5 detik tidak ada pesan, anggap ESP32 offline
+    // Buat timer baru untuk 10 detik
+    _esp32TimeoutTimer = Timer(const Duration(seconds: 10), () {
+      // Jika selama 10 detik tidak ada pesan, anggap ESP32 offline
       isDeviceConnected.value = false;
-      deviceName.value = "";
-      temperature.value = "--";
-      humidity.value = "--";
+      for (var device in devices) {
+        device.value.value = "--";
+      }
     });
+  }
+
+  void sendCommand(DeviceWidgetModel device, String command) {
+    if (device.commandTopic.isNotEmpty) {
+      mqttService.publish(device.commandTopic, command);
+    }
   }
 
   @override
@@ -144,26 +131,5 @@ class DashboardController extends GetxController {
     _esp32TimeoutTimer?.cancel();
     mqttService.disconnect();
     super.onClose();
-  }
-
-  // --- NATIVE AI LOGIC ---
-  double _calculateTargetSuhu(double currentSuhu) {
-    if (currentSuhu > 28.0) {
-      return 24.0;
-    } else if (currentSuhu < 22.0) {
-      return 25.0;
-    } else {
-      return currentSuhu;
-    }
-  }
-
-  double _calculateTargetKelembaban(double currentKelembaban) {
-    if (currentKelembaban > 70.0) {
-      return 50.0;
-    } else if (currentKelembaban < 40.0) {
-      return 55.0;
-    } else {
-      return currentKelembaban;
-    }
   }
 }
