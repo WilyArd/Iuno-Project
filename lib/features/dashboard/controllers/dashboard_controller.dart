@@ -44,10 +44,9 @@ class DashboardController extends GetxController {
   }
 
   Future<void> _initMqtt() async {
-    // Sesuaikan dengan broker yang ada di ESP32 Anda
     mqttService.setup(
-      'broker.emqx.io',
-      'flutter_esp32_client_${DateTime.now().millisecondsSinceEpoch}',
+      '192.168.10.3',
+      'flutter_iuno_client_${DateTime.now().millisecondsSinceEpoch}',
     );
 
     bool brokerConnected = await mqttService.connect();
@@ -55,40 +54,51 @@ class DashboardController extends GetxController {
     if (brokerConnected) {
       isBrokerConnected.value = true;
 
-      // Subscribe to discovery topic
-      mqttService.subscribe('iuno/+/discovery', (topic, message) {
+      // ✅ Subscribe ke pattern yang cocok dengan ESP32:
+      // ESP32 publish ke: iuno/esp32-001/discovery/temp & .../hum
+      // Pattern '#' setelah discovery agar tangkap semua sensor
+      mqttService.subscribe('iuno/+/discovery/#', (topic, message) {
         try {
           final data = jsonDecode(message);
           _handleDiscovery(data);
           _resetEsp32Timeout();
         } catch (e) {
-          print('Error parsing discovery message: $e');
+          print('Error parsing discovery: $e');
         }
+      });
+
+      // ✅ Setelah connect, minta ESP32 kirim ulang discovery segera
+      // (agar tidak harus tunggu 30 detik interval re-discovery ESP32)
+      Future.delayed(const Duration(seconds: 2), () {
+        mqttService.publish('iuno/device/cmd', 'rediscover');
+        print('MQTT: Sent rediscover command to ESP32');
       });
     }
   }
 
   void _handleDiscovery(Map<String, dynamic> data) {
-    final newDevice = DeviceWidgetModel.fromJson(data);
-    
-    // Check if device already exists
-    final index = devices.indexWhere((d) => d.id == newDevice.id);
+    final id = data['id'] ?? '';
+    if (id.isEmpty) return;
+
+    // Cek apakah device sudah ada
+    final index = devices.indexWhere((d) => d.id == id);
+
     if (index == -1) {
+      // Device baru → tambahkan dan subscribe ke state topic-nya
+      final newDevice = DeviceWidgetModel.fromJson(data);
       devices.add(newDevice);
-      
-      // Subscribe to its state topic
+      print('MQTT: New device discovered: ${newDevice.name} (${newDevice.id})');
+
       if (newDevice.stateTopic.isNotEmpty) {
+        // ✅ Closure menangkap `newDevice` yang sama dengan yg ada di list
         mqttService.subscribe(newDevice.stateTopic, (topic, message) {
-          newDevice.value.value = message;
-          _addHistoryData(newDevice, message);
+          newDevice.value.value = message.trim();
+          _addHistoryData(newDevice, message.trim());
           _resetEsp32Timeout();
         });
       }
-    } else {
-      // Update existing
-      devices[index] = newDevice;
-      // We don't re-subscribe here to avoid duplicates, assuming topic hasn't changed
     }
+    // Jika sudah ada, jangan ganti object-nya agar subscription tetap valid
   }
 
   void _addHistoryData(DeviceWidgetModel device, String message) {

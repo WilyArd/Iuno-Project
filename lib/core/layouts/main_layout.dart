@@ -4,8 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../features/dashboard/views/dashboard_view.dart';
 import '../../features/analytics/views/analytics_view.dart';
-import '../../features/dashboard/controllers/dashboard_controller.dart';
-
 import '../../features/assistant/views/assistant_view.dart';
 import '../../features/system/views/system_view.dart';
 import '../../features/system/controllers/system_controller.dart';
@@ -17,7 +15,6 @@ class MainLayoutController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Register SystemController globally so AssistantController can find it
     Get.put(SystemController());
     pageController = PageController(initialPage: selectedIndex.value);
   }
@@ -32,7 +29,7 @@ class MainLayoutController extends GetxController {
     selectedIndex.value = index;
     pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 320),
       curve: Curves.easeInOut,
     );
   }
@@ -54,10 +51,17 @@ class MainLayout extends StatelessWidget {
     SystemView(),
   ];
 
+  static const _tabItems = [
+    {'icon': Icons.sensors_rounded, 'label': 'Devices'},
+    {'icon': Icons.bar_chart_rounded, 'label': 'Analytics'},
+    {'icon': Icons.auto_awesome_rounded, 'label': 'Assistant'},
+    {'icon': Icons.settings_rounded, 'label': 'System'},
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
+      backgroundColor: const Color(0xFFF4F6FA),
       body: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth >= 800) {
@@ -69,81 +73,75 @@ class MainLayout extends StatelessWidget {
     );
   }
 
+  // ─── Desktop ───────────────────────────────────────────
   Widget _buildDesktopLayout(BuildContext context) {
     return Row(
       children: [
         // Sidebar
         Container(
-          width: 250,
-          decoration: const BoxDecoration(
+          width: 240,
+          decoration: BoxDecoration(
             color: Colors.white,
-            border: Border(right: BorderSide(color: Colors.black, width: 3)),
+            border: Border(
+              right: BorderSide(color: Colors.black.withValues(alpha: 0.08), width: 1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 16,
+                offset: const Offset(4, 0),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Logo
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.black, width: 3)),
-                ),
+              // Logo — purely decorative, no tap action
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                 child: Row(
                   children: [
-                    const Icon(Icons.sensors, color: Colors.black, size: 32),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.sensors_rounded, color: Colors.white, size: 20),
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       'IUNO',
                       style: GoogleFonts.spaceGrotesk(
                         color: Colors.black,
                         fontWeight: FontWeight.w900,
-                        fontStyle: FontStyle.italic,
-                        fontSize: 32,
-                        letterSpacing: -1,
+                        fontSize: 26,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ],
                 ),
               ),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+              const SizedBox(height: 12),
               // Nav Items
               Expanded(
-                child: Obx(() => ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildSidebarItem(icon: Icons.router, label: 'DEVICES', index: 0),
-                    const SizedBox(height: 8),
-                    _buildSidebarItem(icon: Icons.leaderboard, label: 'ANALYTICS', index: 1),
-                    const SizedBox(height: 8),
-                    _buildSidebarItem(icon: Icons.smart_toy, label: 'AI ASSISTANT', index: 2),
-                    const SizedBox(height: 8),
-                    _buildSidebarItem(icon: Icons.settings, label: 'SYSTEM', index: 3),
-
-                  ],
-                )),
-              ),
-              // User / Device settings
-              GestureDetector(
-                onTap: () => _showDeviceBottomSheet(context),
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFE600),
-                    border: Border(top: BorderSide(color: Colors.black, width: 3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.settings_input_component, color: Colors.black),
-                      const SizedBox(width: 12),
-                      Text(
-                        'CONNECTION',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
+                child: Obx(() => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Column(
+                        children: List.generate(_tabItems.length, (i) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: _buildSidebarItem(
+                              icon: _tabItems[i]['icon'] as IconData,
+                              label: _tabItems[i]['label'] as String,
+                              index: i,
+                            ),
+                          );
+                        }),
                       ),
-                    ],
-                  ),
-                ),
+                    )),
               ),
             ],
           ),
@@ -152,31 +150,7 @@ class MainLayout extends StatelessWidget {
         Expanded(
           child: Column(
             children: [
-              // Top Bar
-              Container(
-                height: 80,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(bottom: BorderSide(color: Colors.black, width: 3)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    const Icon(Icons.notifications_none, color: Colors.black, size: 28),
-                    const SizedBox(width: 24),
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(Icons.person, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
+              _buildDesktopTopBar(),
               Expanded(
                 child: PageView(
                   controller: controller.pageController,
@@ -192,78 +166,139 @@ class MainLayout extends StatelessWidget {
     );
   }
 
+  Widget _buildDesktopTopBar() {
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.black.withValues(alpha: 0.07), width: 1),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF555555), size: 24),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(19),
+            ),
+            child: const Icon(Icons.person_rounded, color: Colors.white, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSidebarItem({required IconData icon, required String label, required int index}) {
     final isActive = controller.selectedIndex.value == index;
     return GestureDetector(
       onTap: () => controller.changeTab(index),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isActive ? Colors.black : Colors.transparent,
-          border: Border.all(color: isActive ? Colors.black : Colors.transparent, width: 2),
+          color: isActive ? const Color(0xFFF0F0F0) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isActive ? Colors.white : Colors.black87),
-            const SizedBox(width: 16),
+            Icon(
+              icon,
+              color: isActive ? Colors.black : const Color(0xFF888888),
+              size: 20,
+            ),
+            const SizedBox(width: 12),
             Text(
               label,
               style: GoogleFonts.spaceGrotesk(
-                fontWeight: FontWeight.bold,
-                color: isActive ? Colors.white : Colors.black87,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? Colors.black : const Color(0xFF888888),
+                fontSize: 14,
               ),
             ),
+            if (isActive) ...[
+              const Spacer(),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Colors.black,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
+  // ─── Mobile ────────────────────────────────────────────
   Widget _buildMobileLayout(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
+      backgroundColor: const Color(0xFFF4F6FA),
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
+        preferredSize: const Size.fromHeight(60),
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: Colors.white,
-            border: Border(bottom: BorderSide(color: Colors.black, width: 3)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black,
-                offset: Offset(0, 4),
-                blurRadius: 0,
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: SafeArea(
+            bottom: false,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  GestureDetector(
-                    onTap: () => _showDeviceBottomSheet(context),
-                    behavior: HitTestBehavior.opaque,
-                    child: Row(
-                      children: [
-                        const Icon(Icons.sensors, color: Colors.black),
-                        const SizedBox(width: 8),
-                        Text(
-                          'IUNO',
-                          style: GoogleFonts.spaceGrotesk(
-                            color: Colors.black,
-                            fontWeight: FontWeight.w900,
-                            fontStyle: FontStyle.italic,
-                            fontSize: 24,
-                            letterSpacing: -1,
-                          ),
+                  // Logo — no tap action
+                  Row(
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                      ],
-                    ),
+                        child: const Icon(Icons.sensors_rounded, color: Colors.white, size: 16),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'IUNO',
+                        style: GoogleFonts.spaceGrotesk(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 22,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Icon(Icons.account_circle, color: Colors.black),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F0F0),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(Icons.person_rounded, color: Color(0xFF333333), size: 20),
+                  ),
                 ],
               ),
             ),
@@ -276,235 +311,37 @@ class MainLayout extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         children: pages,
       ),
-      bottomNavigationBar: Container(
-        height: 80,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.black, width: 3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black,
-              offset: Offset(0, -4),
-              blurRadius: 0,
-            ),
-          ],
-        ),
-        child: Obx(
-          () => Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildBottomNavItem(
-                icon: Icons.router,
-                label: 'DEVICES',
-                index: 0,
-                isActive: controller.selectedIndex.value == 0,
-              ),
-              _buildBottomNavItem(
-                icon: Icons.leaderboard,
-                label: 'ANALYTICS',
-                index: 1,
-                isActive: controller.selectedIndex.value == 1,
-              ),
-              _buildBottomNavItem(
-                icon: Icons.smart_toy,
-                label: 'ASSISTANT',
-                index: 2,
-                isActive: controller.selectedIndex.value == 2,
-              ),
-              _buildBottomNavItem(
-                icon: Icons.settings,
-                label: 'SYSTEM',
-                index: 3,
-                isActive: controller.selectedIndex.value == 3,
-              ),
-            ],
-          ),
-        ),
-      ),
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  void _showDeviceBottomSheet(BuildContext context) {
-    if (!Get.isRegistered<DashboardController>()) {
-      Get.put(DashboardController());
-    }
-    final dashboardController = Get.find<DashboardController>();
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            top: BorderSide(color: Colors.black, width: 3),
-            left: BorderSide(color: Colors.black, width: 3),
-            right: BorderSide(color: Colors.black, width: 3),
+  Widget _buildBottomNav() {
+    return Container(
+      height: 76,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
           ),
-          boxShadow: [
-            BoxShadow(color: Colors.black, offset: Offset(8, 0), blurRadius: 0),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Device Settings',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Get.back(),
-                  icon: const Icon(Icons.close, color: Colors.black),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Obx(() {
-              if (dashboardController.isBrokerConnected.value &&
-                  !dashboardController.isDeviceConnected.value) {
-                return Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F0F0),
-                        border: Border.all(color: Colors.black, width: 2),
-                      ),
-                      child: Row(
-                        children: [
-                          const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.black,
-                              strokeWidth: 3,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              'Scanning for nodes...',
-                              style: GoogleFonts.spaceGrotesk(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                );
-              } else if (!dashboardController.isDeviceConnected.value) {
-                return const SizedBox.shrink();
-              }
-
-              return Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F0F0),
-                      border: Border.all(color: Colors.black, width: 2),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.developer_board,
-                          size: 32,
-                          color: Colors.black,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                dashboardController.deviceName.value.isEmpty
-                                    ? 'Unknown Device'
-                                    : dashboardController.deviceName.value,
-                                style: GoogleFonts.spaceGrotesk(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              Text(
-                                'Status: Connected',
-                                style: GoogleFonts.spaceGrotesk(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF00E676),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Obx(
+          () => Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(_tabItems.length, (i) {
+              return _buildBottomNavItem(
+                icon: _tabItems[i]['icon'] as IconData,
+                label: _tabItems[i]['label'] as String,
+                index: i,
+                isActive: controller.selectedIndex.value == i,
               );
             }),
-            Obx(
-              () => GestureDetector(
-                onTap: () {
-                  dashboardController.toggleConnection();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: dashboardController.isConnecting.value
-                        ? Colors.grey[300]
-                        : (dashboardController.isBrokerConnected.value
-                              ? const Color(0xFFBA1A1A) // Red for disconnect
-                              : const Color(0xFFFFE600)), // Yellow for connect
-                    border: Border.all(color: Colors.black, width: 3),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black,
-                        offset: Offset(4, 4),
-                        blurRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      dashboardController.isConnecting.value
-                          ? 'CONNECTING...'
-                          : (dashboardController.isBrokerConnected.value
-                                ? 'DISCONNECT'
-                                : 'CONNECT BROKER'),
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color:
-                            dashboardController.isBrokerConnected.value &&
-                                !dashboardController.isConnecting.value
-                            ? Colors.white
-                            : Colors.black,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
+          ),
         ),
       ),
     );
@@ -519,46 +356,34 @@ class MainLayout extends StatelessWidget {
     return GestureDetector(
       onTap: () => controller.changeTab(index),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutBack,
-        transform: isActive
-            ? Matrix4.translationValues(0, -6, 0)
-            : Matrix4.identity(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFFFE600) : Colors.transparent,
-          border: isActive
-              ? Border.all(color: Colors.black, width: 3)
-              : Border.all(color: Colors.transparent, width: 3),
-          boxShadow: isActive
-              ? const [
-                  BoxShadow(
-                    color: Colors.black,
-                    offset: Offset(4, 4),
-                    blurRadius: 0,
-                  ),
-                ]
-              : const [
-                  BoxShadow(
-                    color: Colors.transparent,
-                    offset: Offset(0, 0),
-                    blurRadius: 0,
-                  ),
-                ],
-        ),
+      child: SizedBox(
+        width: 72,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: isActive ? Colors.black : Colors.black54),
-            const SizedBox(height: 4),
-            Text(
-              label,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: isActive ? const Color(0xFFFFE600) : Colors.transparent,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                icon,
+                color: isActive ? const Color(0xFF1A1A1A) : const Color(0xFFAAAAAA),
+                size: 22,
+              ),
+            ),
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 220),
               style: GoogleFonts.spaceGrotesk(
                 fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: isActive ? Colors.black : Colors.black54,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? const Color(0xFF1A1A1A) : const Color(0xFFAAAAAA),
               ),
+              child: Text(label),
             ),
           ],
         ),
