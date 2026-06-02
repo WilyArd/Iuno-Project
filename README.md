@@ -218,6 +218,78 @@ void loop() {
 }
 ```
 
+---
+
+### 4. Alternatif: Koneksi ke HiveMQ Cloud (Secure TLS dengan Username & Password)
+
+HiveMQ Cloud adalah broker *cloud* MQTT terenkripsi yang sangat populer untuk proyek IoT berskala produksi. Karena HiveMQ Cloud menggunakan enkripsi SSL/TLS pada port **8883** dan mewajibkan autentikasi, Anda perlu memodifikasi kode ESP32 dasar di atas seperti berikut:
+
+#### A. Ubah Import dan Inisialisasi Client
+Ganti `WiFiClient espClient` dengan `WiFiClientSecure` untuk menangani enkripsi TLS:
+```cpp
+#include <WiFi.h>
+#include <WiFiClientSecure.h> // Library bawaan ESP32 untuk koneksi aman
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+
+// Set SSL Client
+WiFiClientSecure espClient;
+PubSubClient client(espClient);
+```
+
+#### B. Sesuaikan Kredensial HiveMQ Anda
+Masukkan alamat host unik dari konsol HiveMQ Cloud Anda, gunakan port **8883**, dan tentukan Username/Password MQTT Anda:
+```cpp
+const char* mqtt_server = "xxxxxxxxxxxxxxxx.s2.eu.hivemq.cloud"; // Host HiveMQ Anda
+const int mqtt_port = 8883; // Port TLS SSL standard
+const char* mqtt_user = "username_mqtt_anda"; // Dibuat di tab credentials HiveMQ
+const char* mqtt_pass = "password_mqtt_anda";
+```
+
+#### C. Konfigurasi Sertifikat SSL di `setup()`
+Agar ESP32 dapat bernegosiasi secara aman via SSL, tambahkan perintah `setInsecure()` pada setup untuk melewati verifikasi rantai sertifikat (sangat direkomendasikan untuk kemudahan pengujian tanpa perlu menyalin string sertifikat Root CA yang panjang):
+```cpp
+void setup() {
+  pinMode(RELAY_PIN, OUTPUT);
+  Serial.begin(115200);
+  setup_wifi();
+  
+  // Lewati verifikasi sertifikat root (menjaga agar tetap aman tanpa repot menyalin CA certificate)
+  espClient.setInsecure(); 
+  
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
+}
+```
+
+#### D. Sesuaikan Fungsi `reconnect()` dengan Autentikasi
+Saat melakukan panggilan `client.connect()`, Anda harus menyertakan argumen username dan password agar diizinkan masuk oleh HiveMQ:
+```cpp
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Mencoba koneksi MQTT HiveMQ...");
+    String clientId = "ESP32SecureClient-" + String(random(0xffff), HEX);
+    
+    // Sertakan username dan password untuk autentikasi HiveMQ
+    if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
+      Serial.println("terhubung aman ke HiveMQ!");
+      
+      client.subscribe("iuno/device/cmd");
+      client.subscribe("iuno/esp32/relay/cmd");
+      
+      publishDiscovery();
+    } else {
+      Serial.print("gagal terhubung, rc=");
+      Serial.print(client.state());
+      Serial.println(" Mencoba kembali dalam 5 detik...");
+      delay(5000);
+    }
+  }
+}
+```
+
+---
+
 ## Teknologi yang Digunakan
 
 - **Flutter / Dart** (Minimum Android API 21)
