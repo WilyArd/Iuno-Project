@@ -28,24 +28,22 @@ class SplashView extends StatelessWidget {
             children: [
               // Logo App
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 24,
-                ),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: Colors.black, width: 4),
                   boxShadow: const [
                     BoxShadow(color: Colors.black, offset: Offset(8, 8)),
                   ],
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  'IUNO',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 64,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black,
-                    letterSpacing: -2,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),

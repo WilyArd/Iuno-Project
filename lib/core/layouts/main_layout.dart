@@ -101,14 +101,14 @@ class MainLayout extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
                 child: Row(
                   children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.cover,
                       ),
-                      child: const Icon(Icons.sensors_rounded, color: Colors.white, size: 20),
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -271,14 +271,14 @@ class MainLayout extends StatelessWidget {
                   // Logo — no tap action
                   Row(
                     children: [
-                      Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          'assets/logo.png',
+                          width: 30,
+                          height: 30,
+                          fit: BoxFit.cover,
                         ),
-                        child: const Icon(Icons.sensors_rounded, color: Colors.white, size: 16),
                       ),
                       const SizedBox(width: 10),
                       Text(
