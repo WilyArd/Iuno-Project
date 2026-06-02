@@ -523,7 +523,7 @@ class SystemView extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           isExpanded: true,
           style: GoogleFonts.spaceGrotesk(fontSize: 14, color: Colors.black),
           decoration: InputDecoration(
