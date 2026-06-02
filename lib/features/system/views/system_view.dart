@@ -172,7 +172,7 @@ class SystemView extends StatelessWidget {
                     iconColor: const Color(0xFFC2185B),
                     iconBgColor: const Color(0xFFFCE4EC),
                     title: 'System & Version',
-                    subtitle: 'IUNO IoT v0.1.0 • Running on Linux',
+                    subtitle: 'IUNO IoT v1.0.0-beta.1 • Running on Linux',
                     isExpanded: expanded == 'Info',
                     onTap: () => _toggleTile('Info'),
                     child: _buildSystemInfoContent(),
