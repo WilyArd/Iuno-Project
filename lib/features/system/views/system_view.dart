@@ -6,11 +6,20 @@ import '../../dashboard/controllers/dashboard_controller.dart';
 
 class SystemView extends StatelessWidget {
   final SystemController controller = Get.find<SystemController>();
+  final RxString _expandedTile = 'AI'.obs; // Default to AI configuration open
 
   final providerController = TextEditingController();
   final baseUrlController = TextEditingController();
   final apiKeyController = TextEditingController();
   final modelController = TextEditingController();
+
+  // New connection controllers
+  final mqttHostController = TextEditingController();
+  final mqttPortController = TextEditingController();
+  final mqttWsPortController = TextEditingController();
+  final mqttTlsHostController = TextEditingController();
+  final mqttTlsWsUrlController = TextEditingController();
+  final httpUrlController = TextEditingController();
 
   SystemView({super.key}) {
     ever(controller.isLoading, (isLoading) {
@@ -18,6 +27,13 @@ class SystemView extends StatelessWidget {
         baseUrlController.text = controller.baseUrl.value;
         apiKeyController.text = controller.apiKey.value;
         modelController.text = controller.modelName.value;
+
+        mqttHostController.text = controller.mqttHost.value;
+        mqttPortController.text = controller.mqttPort.value.toString();
+        mqttWsPortController.text = controller.mqttWsPort.value.toString();
+        mqttTlsHostController.text = controller.mqttTlsHost.value;
+        mqttTlsWsUrlController.text = controller.mqttTlsWsUrl.value;
+        httpUrlController.text = controller.httpTargetUrl.value;
       }
     });
     ever(controller.modelName, (model) {
@@ -27,11 +43,31 @@ class SystemView extends StatelessWidget {
       baseUrlController.text = controller.baseUrl.value;
       apiKeyController.text = controller.apiKey.value;
       modelController.text = controller.modelName.value;
+
+      mqttHostController.text = controller.mqttHost.value;
+      mqttPortController.text = controller.mqttPort.value.toString();
+      mqttWsPortController.text = controller.mqttWsPort.value.toString();
+      mqttTlsHostController.text = controller.mqttTlsHost.value;
+      mqttTlsWsUrlController.text = controller.mqttTlsWsUrl.value;
+      httpUrlController.text = controller.httpTargetUrl.value;
+    }
+  }
+
+  void _toggleTile(String tile) {
+    if (_expandedTile.value == tile) {
+      _expandedTile.value = '';
+    } else {
+      _expandedTile.value = tile;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!Get.isRegistered<DashboardController>()) {
+      Get.put(DashboardController());
+    }
+    final dash = Get.find<DashboardController>();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       body: SingleChildScrollView(
@@ -57,22 +93,80 @@ class SystemView extends StatelessWidget {
                 color: const Color(0xFF999999),
               ),
             ),
+            const SizedBox(height: 20),
+
+            // Search Bar (Inspired by the reference design)
+            _buildSearchBar(),
             const SizedBox(height: 24),
 
-            // ── Broker Connection Section ─────────────────
-            _buildSectionLabel('Broker Connection'),
-            const SizedBox(height: 10),
-            _buildBrokerCard(context),
-            const SizedBox(height: 24),
-
-            // ── AI API Section ───────────────────────────
-            _buildSectionLabel('AI API Provider'),
-            const SizedBox(height: 10),
+            // Grouped Setting Cards
             Obx(() {
-              if (controller.isLoading.value) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              return _buildAiCard(context);
+              final expanded = _expandedTile.value;
+
+              // Dynamic subtitle for Broker status
+              final brokerOk = dash.isBrokerConnected.value;
+              final deviceLive = dash.isDeviceConnected.value;
+              final String brokerSubtitle = deviceLive
+                  ? '192.168.10.3 • Live'
+                  : (brokerOk ? '192.168.10.3 • Broker OK' : '192.168.10.3 • Offline');
+
+              // Dynamic subtitle for AI active configurations
+              final String aiSubtitle =
+                  'Active: ${controller.providerName.value} • ${controller.modelName.value}';
+
+              return Column(
+                children: [
+                  // 1. MQTT Broker Configuration
+                  _buildSettingTile(
+                    icon: Icons.hub_rounded,
+                    iconColor: const Color(0xFF0288D1),
+                    iconBgColor: const Color(0xFFE1F5FE),
+                    title: 'MQTT Broker',
+                    subtitle: brokerSubtitle,
+                    isExpanded: expanded == 'Broker',
+                    onTap: () => _toggleTile('Broker'),
+                    child: _buildBrokerCardContent(dash),
+                  ),
+
+                  // 2. AI API Provider Configuration
+                  _buildSettingTile(
+                    icon: Icons.auto_awesome_rounded,
+                    iconColor: const Color(0xFF7B1FA2),
+                    iconBgColor: const Color(0xFFF3E5F5),
+                    title: 'AI API Provider',
+                    subtitle: aiSubtitle,
+                    isExpanded: expanded == 'AI',
+                    onTap: () => _toggleTile('AI'),
+                    child: controller.isLoading.value
+                        ? const Center(child: CircularProgressIndicator())
+                        : _buildAiCardContent(context),
+                  ),
+
+                  // 3. Theme & Aesthetics settings (Decorative)
+                  _buildSettingTile(
+                    icon: Icons.palette_rounded,
+                    iconColor: const Color(0xFFF57C00),
+                    iconBgColor: const Color(0xFFFFF3E0),
+                    title: 'Theme & Aesthetics',
+                    subtitle: 'Space Grotesk Font • Light Mode',
+                    isExpanded: expanded == 'Theme',
+                    onTap: () => _toggleTile('Theme'),
+                    child: _buildThemeContent(),
+                  ),
+
+                  // 4. System Info (Decorative)
+                  _buildSettingTile(
+                    icon: Icons.info_rounded,
+                    iconColor: const Color(0xFFC2185B),
+                    iconBgColor: const Color(0xFFFCE4EC),
+                    title: 'System & Version',
+                    subtitle: 'IUNO IoT v0.1.0 • Running on Linux',
+                    isExpanded: expanded == 'Info',
+                    onTap: () => _toggleTile('Info'),
+                    child: _buildSystemInfoContent(),
+                  ),
+                ],
+              );
             }),
           ],
         ),
@@ -80,306 +174,789 @@ class SystemView extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionLabel(String text) {
-    return Text(
-      text,
-      style: GoogleFonts.spaceGrotesk(
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        color: const Color(0xFF888888),
-        letterSpacing: 1,
+  // ─── Modern Search Bar ─────────────────────────────────
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFEEEEEE), width: 1),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 18),
+          const Icon(Icons.search_rounded, color: Color(0xFF666666), size: 22),
+          const SizedBox(width: 14),
+          Expanded(
+            child: TextField(
+              style: GoogleFonts.spaceGrotesk(fontSize: 15),
+              decoration: InputDecoration(
+                hintText: 'Search Settings',
+                hintStyle: GoogleFonts.spaceGrotesk(
+                  color: const Color(0xFF888888),
+                  fontSize: 15,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // ─── Broker card (moved from logo hotspot) ──────────
-  Widget _buildBrokerCard(BuildContext context) {
-    if (!Get.isRegistered<DashboardController>()) {
-      Get.put(DashboardController());
-    }
-    final dash = Get.find<DashboardController>();
-
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Status row
-          Obx(() {
-            final isConnecting = dash.isConnecting.value;
-            final brokerOk = dash.isBrokerConnected.value;
-            final deviceLive = dash.isDeviceConnected.value;
-
-            Color dotColor;
-            Color dotBg;
-            String chipLabel;
-            if (isConnecting) {
-              dotColor = const Color(0xFF9A7700);
-              dotBg = const Color(0xFFFFF9C4);
-              chipLabel = 'Connecting';
-            } else if (deviceLive) {
-              dotColor = const Color(0xFF065F46);
-              dotBg = const Color(0xFFD1FAE5);
-              chipLabel = 'Live';
-            } else if (brokerOk) {
-              dotColor = const Color(0xFF8A5700);
-              dotBg = const Color(0xFFFFF3CD);
-              chipLabel = 'Broker OK';
-            } else {
-              dotColor = const Color(0xFF991B1B);
-              dotBg = const Color(0xFFFFE4E4);
-              chipLabel = 'Offline';
-            }
-
-            return Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF4F6FA),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.hub_rounded, color: Color(0xFF555555), size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'MQTT Broker',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '192.168.10.3 : 1883',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 12,
-                          color: const Color(0xFF999999),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: dotBg,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: dotColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        chipLabel,
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: dotColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          }),
-          const SizedBox(height: 6),
-          Obx(() {
-            if (dash.isBrokerConnected.value && !dash.isDeviceConnected.value) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 8),
+  // ─── Custom Expandable Setting Tile ─────────────────────
+  Widget _buildSettingTile({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String title,
+    required String subtitle,
+    required Widget child,
+    required bool isExpanded,
+    required VoidCallback onTap,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: isExpanded ? Colors.black.withValues(alpha: 0.1) : Colors.transparent,
+          width: 1.5,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Row(
                   children: [
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF888888)),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: iconBgColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: iconColor, size: 22),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Scanning for nodes…',
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 13,
-                        color: const Color(0xFF888888),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: GoogleFonts.spaceGrotesk(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              color: Colors.black,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 12,
+                              color: const Color(0xFF888888),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Color(0xFF888888),
                       ),
                     ),
                   ],
                 ),
-              );
-            }
-            return const SizedBox.shrink();
-          }),
-          const SizedBox(height: 16),
-          // Connect / Disconnect button
-          Obx(() => _buildPrimaryButton(
-                label: dash.isConnecting.value
-                    ? 'Connecting…'
-                    : dash.isBrokerConnected.value
-                        ? 'Disconnect'
-                        : 'Connect Broker',
-                onTap: dash.toggleConnection,
-                isDestructive: dash.isBrokerConnected.value && !dash.isConnecting.value,
-                isLoading: dash.isConnecting.value,
-              )),
-        ],
+              ),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF9FAFC),
+                  border: Border(
+                    top: BorderSide(color: Color(0xFFEEEEEE), width: 1),
+                  ),
+                ),
+                padding: const EdgeInsets.all(20),
+                child: child,
+              ),
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 250),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // ─── AI Config card ─────────────────────────────────
-  Widget _buildAiCard(BuildContext context) {
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Configure your preferred AI API provider for the Assistant.',
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 13,
-              color: const Color(0xFF888888),
-              height: 1.5,
-            ),
+  // ─── MQTT Broker Content ──────────────────────────────
+  Widget _buildBrokerCardContent(DashboardController dash) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Protocol Selection Header
+        Text(
+          'Select Connection Protocol',
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF444444),
           ),
-          const SizedBox(height: 20),
-          _buildDropdown(
-            label: 'Provider',
-            value: controller.providerName.value.isNotEmpty &&
-                    controller.providers.contains(controller.providerName.value)
-                ? controller.providerName.value
-                : controller.providers.first,
-            items: controller.providers,
-            onChanged: (val) {
-              if (val != null) {
-                controller.providerName.value = val;
-                if (val == 'OpenRouter') {
-                  baseUrlController.text = 'https://openrouter.ai/api/v1';
-                } else if (val == 'OpenAI') {
-                  baseUrlController.text = 'https://api.openai.com/v1';
-                }
-                if (controller.availableModels.isNotEmpty) {
-                  controller.modelName.value = controller.availableModels.first;
-                }
-              }
-            },
-          ),
-          const SizedBox(height: 14),
-          _buildTextField(
-            ctrl: baseUrlController,
-            label: 'Base URL',
-            hint: 'https://openrouter.ai/api/v1',
-          ),
-          const SizedBox(height: 14),
-          _buildTextField(
-            ctrl: apiKeyController,
-            label: 'API Key',
-            hint: 'Enter your API key',
-            isObscure: true,
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+        ),
+        const SizedBox(height: 8),
+        Obx(() {
+          final selectedProtocol = controller.connectionProtocol.value;
+          return Row(
             children: [
               Expanded(
-                child: Obx(() {
-                  final models = controller.availableModels;
-                  if (models.isEmpty) {
-                    return _buildTextField(
-                      ctrl: modelController,
-                      label: 'Model',
-                      hint: 'e.g., openai/gpt-4o',
-                    );
-                  }
-                  final cur = models.contains(controller.modelName.value)
-                      ? controller.modelName.value
-                      : models.first;
-                  return _buildSearchableDropdown(
+                child: _buildChoiceCard(
+                  label: 'MQTT Protocol',
+                  icon: Icons.hub_rounded,
+                  isSelected: selectedProtocol == 'MQTT',
+                  onTap: () {
+                    controller.connectionProtocol.value = 'MQTT';
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildChoiceCard(
+                  label: 'HTTP Protocol',
+                  icon: Icons.language_rounded,
+                  isSelected: selectedProtocol == 'HTTP',
+                  onTap: () {
+                    controller.connectionProtocol.value = 'HTTP';
+                  },
+                ),
+              ),
+            ],
+          );
+        }),
+        const SizedBox(height: 20),
+
+        Obx(() {
+          final selectedProtocol = controller.connectionProtocol.value;
+          if (selectedProtocol == 'HTTP') {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTextField(
+                  ctrl: httpUrlController,
+                  label: 'ESP32 HTTP Target URL',
+                  hint: 'e.g., http://192.168.10.100',
+                ),
+                const SizedBox(height: 20),
+                _buildSaveBrokerButton(),
+              ],
+            );
+          }
+
+          // MQTT connection details
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Presets selector
+              Text(
+                'Broker Preset / Target',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF444444),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildChoiceCard(
+                      label: 'Local Docker',
+                      icon: Icons.developer_board_rounded,
+                      isSelected: controller.mqttPreset.value == 'Docker',
+                      onTap: () {
+                        controller.mqttPreset.value = 'Docker';
+                        mqttHostController.text = '192.168.10.3';
+                        mqttPortController.text = '1883';
+                        mqttWsPortController.text = '9001';
+                        controller.mqttUseTls.value = false;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildChoiceCard(
+                      label: 'HiveMQ Cloud',
+                      icon: Icons.cloud_queue_rounded,
+                      isSelected: controller.mqttPreset.value == 'HiveMQ',
+                      onTap: () {
+                        controller.mqttPreset.value = 'HiveMQ';
+                        mqttHostController.text = 'broker.hivemq.com';
+                        mqttPortController.text = '1883';
+                        mqttWsPortController.text = '8000';
+                        mqttTlsHostController.text = 'broker.hivemq.com';
+                        mqttTlsWsUrlController.text = 'wss://broker.hivemq.com:8884/mqtt';
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildChoiceCard(
+                      label: 'Custom Broker',
+                      icon: Icons.tune_rounded,
+                      isSelected: controller.mqttPreset.value == 'Custom',
+                      onTap: () {
+                        controller.mqttPreset.value = 'Custom';
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Configuration fields based on preset & customization
+              _buildTextField(
+                ctrl: mqttHostController,
+                label: 'Broker URL / Host Address',
+                hint: 'e.g., 192.168.10.3 or broker.hivemq.com',
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTextField(
+                      ctrl: mqttPortController,
+                      label: 'TCP Port',
+                      hint: '1883',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTextField(
+                      ctrl: mqttWsPortController,
+                      label: 'WebSocket Port',
+                      hint: '9001',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // TLS Security Toggle
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Secure Connection (TLS)',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF444444),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Encrypt communication with SSL/TLS',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 11,
+                          color: const Color(0xFF888888),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Obx(() => Switch.adaptive(
+                        value: controller.mqttUseTls.value,
+                        activeThumbColor: Colors.black,
+                        onChanged: (val) {
+                          controller.mqttUseTls.value = val;
+                          if (val && mqttPortController.text == '1883') {
+                            mqttPortController.text = '8883'; // Auto TLS port
+                          } else if (!val && mqttPortController.text == '8883') {
+                            mqttPortController.text = '1883'; // Auto non-TLS port
+                          }
+                        },
+                      )),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // TLS Specific URL Fields (Visible if TLS is active or custom)
+              Obx(() {
+                if (controller.mqttUseTls.value || controller.mqttPreset.value == 'HiveMQ' || controller.mqttPreset.value == 'Custom') {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTextField(
+                        ctrl: mqttTlsHostController,
+                        label: 'TLS MQTT URL / Secure Host',
+                        hint: 'e.g., broker.hivemq.com (Secure)',
+                      ),
+                      const SizedBox(height: 14),
+                      _buildTextField(
+                        ctrl: mqttTlsWsUrlController,
+                        label: 'TLS Secure WebSocket URL',
+                        hint: 'e.g., wss://broker.hivemq.com:8884/mqtt',
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              }),
+
+              const SizedBox(height: 10),
+              _buildSaveBrokerButton(),
+              const SizedBox(height: 20),
+
+              // Connection status and manual connect
+              const Divider(height: 1, color: Color(0xFFEEEEEE)),
+              const SizedBox(height: 16),
+              _buildStatusAndConnectSection(dash),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildChoiceCard({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.black : const Color(0xFFF7F8FA),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.black : const Color(0xFFE8E8E8),
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFF555555),
+              size: 20,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? Colors.white : const Color(0xFF555555),
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSaveBrokerButton() {
+    return _buildPrimaryButton(
+      label: 'Save Connection Settings',
+      onTap: () {
+        controller.saveBrokerSettings(
+          protocol: controller.connectionProtocol.value,
+          preset: controller.mqttPreset.value,
+          host: mqttHostController.text.trim(),
+          port: int.tryParse(mqttPortController.text.trim()) ?? 1883,
+          wsPort: int.tryParse(mqttWsPortController.text.trim()) ?? 9001,
+          useTls: controller.mqttUseTls.value,
+          tlsHost: mqttTlsHostController.text.trim(),
+          tlsWsUrl: mqttTlsWsUrlController.text.trim(),
+          httpUrl: httpUrlController.text.trim(),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusAndConnectSection(DashboardController dash) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Obx(() {
+          final isConnecting = dash.isConnecting.value;
+          final brokerOk = dash.isBrokerConnected.value;
+          final deviceLive = dash.isDeviceConnected.value;
+
+          Color dotColor;
+          Color dotBg;
+          String chipLabel;
+          if (isConnecting) {
+            dotColor = const Color(0xFF9A7700);
+            dotBg = const Color(0xFFFFF9C4);
+            chipLabel = 'Connecting';
+          } else if (deviceLive) {
+            dotColor = const Color(0xFF065F46);
+            dotBg = const Color(0xFFD1FAE5);
+            chipLabel = 'Live';
+          } else if (brokerOk) {
+            dotColor = const Color(0xFF8A5700);
+            dotBg = const Color(0xFFFFF3CD);
+            chipLabel = 'Broker OK';
+          } else {
+            dotColor = const Color(0xFF991B1B);
+            dotBg = const Color(0xFFFFE4E4);
+            chipLabel = 'Offline';
+          }
+
+          return Row(
+            children: [
+              Text(
+                'Status:',
+                style: GoogleFonts.spaceGrotesk(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: const Color(0xFF555555),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: dotBg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      chipLabel,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: dotColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }),
+        const SizedBox(height: 12),
+        Obx(() {
+          if (dash.isBrokerConnected.value && !dash.isDeviceConnected.value) {
+            return Row(
+              children: [
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF888888)),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Scanning for ESP32 nodes…',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 12,
+                    color: const Color(0xFF888888),
+                  ),
+                ),
+              ],
+            );
+          }
+          return const SizedBox.shrink();
+        }),
+        const SizedBox(height: 12),
+        Obx(() => _buildOutlineButton(
+              label: dash.isConnecting.value
+                  ? 'Connecting…'
+                  : dash.isBrokerConnected.value
+                      ? 'Disconnect'
+                      : 'Connect Now',
+              onTap: dash.toggleConnection,
+              isLoading: dash.isConnecting.value,
+            )),
+      ],
+    );
+  }
+
+  // ─── AI API Provider Content ──────────────────────────
+  Widget _buildAiCardContent(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Configure your preferred AI API provider for the Assistant.',
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 13,
+            color: const Color(0xFF888888),
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 20),
+        _buildProviderSelection(),
+        const SizedBox(height: 18),
+        _buildTextField(
+          ctrl: baseUrlController,
+          label: 'Base URL',
+          hint: 'https://openrouter.ai/api/v1',
+          onChanged: (val) {
+            controller.baseUrl.value = val.trim();
+          },
+        ),
+        const SizedBox(height: 14),
+        _buildTextField(
+          ctrl: apiKeyController,
+          label: 'API Key',
+          hint: 'Enter your API key',
+          isObscure: true,
+          onChanged: (val) {
+            controller.apiKey.value = val.trim();
+          },
+        ),
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Obx(() {
+                final key = controller.apiKey.value.trim();
+                if (key.isEmpty) {
+                  return _buildLockedModelField(
                     label: 'Model',
-                    value: cur,
-                    items: models.toList(),
+                    hint: 'Enter API Key to unlock model list',
+                  );
+                }
+
+                if (controller.isTestingConnection.value) {
+                  return _buildLoadingModelField(label: 'Model');
+                }
+
+                final models = controller.availableModels;
+                if (models.isEmpty) {
+                  return _buildTextField(
+                    ctrl: modelController,
+                    label: 'Model',
+                    hint: 'e.g., openai/gpt-4o',
                     onChanged: (val) {
-                      if (val != null) {
-                        controller.modelName.value = val;
-                        modelController.text = val;
-                      }
+                      controller.modelName.value = val.trim();
                     },
                   );
-                }),
-              ),
-              const SizedBox(width: 12),
-              Obx(() => _buildOutlineButton(
-                    label: 'Test',
-                    isLoading: controller.isTestingConnection.value,
-                    onTap: () {
-                      if (baseUrlController.text.isNotEmpty &&
-                          apiKeyController.text.isNotEmpty) {
-                        controller.testConnection(
-                          baseUrlController.text,
-                          apiKeyController.text,
-                        );
-                      } else {
-                        Get.snackbar(
-                          'Missing Info',
-                          'Please enter Base URL and API Key first.',
-                          snackPosition: SnackPosition.BOTTOM,
-                          backgroundColor: Colors.black,
-                          colorText: Colors.white,
-                          borderRadius: 14,
-                          margin: const EdgeInsets.all(16),
-                        );
-                      }
-                    },
-                  )),
-            ],
+                }
+
+                final cur = models.contains(controller.modelName.value)
+                    ? controller.modelName.value
+                    : models.first;
+
+                return _buildSearchableDropdown(
+                  label: 'Model',
+                  value: cur,
+                  items: models.toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      controller.modelName.value = val;
+                    }
+                  },
+                );
+              }),
+            ),
+            const SizedBox(width: 12),
+            Obx(() => _buildOutlineButton(
+                  label: 'Test',
+                  isLoading: controller.isTestingConnection.value,
+                  onTap: () {
+                    if (baseUrlController.text.isNotEmpty &&
+                        apiKeyController.text.isNotEmpty) {
+                      controller.testConnection(
+                        baseUrlController.text,
+                        apiKeyController.text,
+                      );
+                    } else {
+                      Get.snackbar(
+                        'Missing Info',
+                        'Please enter Base URL and API Key first.',
+                        snackPosition: SnackPosition.BOTTOM,
+                        backgroundColor: Colors.black,
+                        colorText: Colors.white,
+                        borderRadius: 14,
+                        margin: const EdgeInsets.all(16),
+                      );
+                    }
+                  },
+                )),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _buildPrimaryButton(
+          label: 'Save Configuration',
+          onTap: () => controller.saveSettings(
+            provider: controller.providerName.value,
+            url: baseUrlController.text.trim(),
+            key: apiKeyController.text.trim(),
+            model: modelController.text.trim(),
           ),
-          const SizedBox(height: 20),
-          _buildPrimaryButton(
-            label: 'Save Configuration',
-            onTap: () => controller.saveSettings(
-              provider: controller.providerName.value,
-              url: baseUrlController.text.trim(),
-              key: apiKeyController.text.trim(),
-              model: modelController.text.trim(),
+        ),
+      ],
+    );
+  }
+
+  // ─── Theme & Aesthetics Content ────────────────────────
+  Widget _buildThemeContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Select App Theme Mode',
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF444444),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    'Light Mode',
+                    style: GoogleFonts.spaceGrotesk(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F0F0),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFDDDDDD)),
+                ),
+                child: Center(
+                  child: Text(
+                    'Dark Mode',
+                    style: GoogleFonts.spaceGrotesk(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ─── System Info Content ──────────────────────────────
+  Widget _buildSystemInfoContent() {
+    return Table(
+      columnWidths: const {
+        0: FlexColumnWidth(1.2),
+        1: FlexColumnWidth(2),
+      },
+      children: [
+        _buildInfoRow('OS Version', 'Linux (CachyOS 7.0.10)'),
+        _buildInfoRow('Device Model', 'Acer Swift SFX14-41G'),
+        _buildInfoRow('CPU Core Count', 'AMD Ryzen 5 5500U (12 Cores)'),
+        _buildInfoRow('Flutter SDK', 'v3.44.1 (Stable Channel)'),
+        _buildInfoRow('Dart SDK', 'v3.12.0'),
+        _buildInfoRow('Broker Target', '192.168.10.3 (MQTT Port 1883)'),
+      ],
+    );
+  }
+
+  TableRow _buildInfoRow(String label, String val) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            label,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF777777),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Shared styled widgets ──────────────────────────
-
-  Widget _card({required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            val,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+            ),
           ),
-        ],
-      ),
-      child: child,
+        ),
+      ],
     );
   }
 
+  // ─── Shared widgets ────────────────────────────────────
   Widget _buildPrimaryButton({
     required String label,
     required VoidCallback onTap,
@@ -459,6 +1036,7 @@ class SystemView extends StatelessWidget {
     required String label,
     required String hint,
     bool isObscure = false,
+    void Function(String)? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,6 +1053,7 @@ class SystemView extends StatelessWidget {
         TextField(
           controller: ctrl,
           obscureText: isObscure,
+          onChanged: onChanged,
           style: GoogleFonts.spaceGrotesk(fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
@@ -504,12 +1083,54 @@ class SystemView extends StatelessWidget {
     );
   }
 
-  Widget _buildDropdown({
-    required String label,
-    required String? value,
-    required List<String> items,
-    required void Function(String?) onChanged,
-  }) {
+  Widget _buildLockedModelField({required String label, required String hint}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.spaceGrotesk(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: const Color(0xFF888888),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F1F4),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.lock_outline_rounded,
+                color: Color(0xFF888888),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hint,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 13,
+                    color: const Color(0xFF888888),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingModelField({required String label}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -522,37 +1143,135 @@ class SystemView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          style: GoogleFonts.spaceGrotesk(fontSize: 14, color: Colors.black),
-          decoration: InputDecoration(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            filled: true,
-            fillColor: const Color(0xFFF7F8FA),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE8E8E8), width: 1),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE8E8E8), width: 1),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.black, width: 1.5),
-            ),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F8FA),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE8E8E8), width: 1),
           ),
-          items: items
-              .map((item) => DropdownMenuItem(
-                    value: item,
-                    child: Text(item, overflow: TextOverflow.ellipsis),
-                  ))
-              .toList(),
-          onChanged: onChanged,
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Detecting available models…',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 13,
+                    color: const Color(0xFF666666),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildProviderSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Provider',
+          style: GoogleFonts.spaceGrotesk(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: const Color(0xFF444444),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Obx(() {
+          final selected = controller.providerName.value;
+          return Row(
+            children: [
+              Expanded(child: _buildProviderOption('OpenRouter', Icons.alt_route_rounded, selected == 'OpenRouter')),
+              const SizedBox(width: 8),
+              Expanded(child: _buildProviderOption('OpenAI', Icons.auto_awesome_rounded, selected == 'OpenAI')),
+              const SizedBox(width: 8),
+              Expanded(child: _buildProviderOption('Local/Custom', Icons.dns_rounded, selected == 'Local/Custom')),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildProviderOption(String name, IconData icon, bool isSelected) {
+    return GestureDetector(
+      onTap: () {
+        controller.providerName.value = name;
+        if (name == 'OpenRouter') {
+          baseUrlController.text = 'https://openrouter.ai/api/v1';
+          controller.baseUrl.value = 'https://openrouter.ai/api/v1';
+        } else if (name == 'OpenAI') {
+          baseUrlController.text = 'https://api.openai.com/v1';
+          controller.baseUrl.value = 'https://api.openai.com/v1';
+        } else {
+          controller.baseUrl.value = baseUrlController.text;
+        }
+        if (controller.apiKey.value.trim().isEmpty) {
+          controller.availableModels.clear();
+          controller.modelName.value = '';
+        } else {
+          if (controller.availableModels.isNotEmpty) {
+            controller.modelName.value = controller.availableModels.first;
+          }
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.black : const Color(0xFFF7F8FA),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.black : const Color(0xFFE8E8E8),
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFF777777),
+              size: 20,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              name,
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? Colors.white : const Color(0xFF555555),
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

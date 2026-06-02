@@ -10,6 +10,17 @@ class SystemController extends GetxController {
   final apiKey = ''.obs;
   final modelName = 'openai/gpt-4o'.obs;
 
+  // New connection protocol and broker customization variables
+  final connectionProtocol = 'MQTT'.obs;
+  final mqttPreset = 'Docker'.obs;
+  final mqttHost = '192.168.10.3'.obs;
+  final mqttPort = 1883.obs;
+  final mqttWsPort = 9001.obs;
+  final mqttUseTls = false.obs;
+  final mqttTlsHost = ''.obs;
+  final mqttTlsWsUrl = ''.obs;
+  final httpTargetUrl = 'http://192.168.10.3'.obs;
+
   final isLoading = true.obs;
   final isTestingConnection = false.obs;
   
@@ -21,12 +32,39 @@ class SystemController extends GetxController {
     super.onInit();
     _loadSettings();
     
-    // Listen to provider name changes to update default models if we haven't fetched real ones
+    // Listen to provider name changes to update default models if we haven't fetched real ones (and API key is not empty)
     ever(providerName, (String newProvider) {
-      if (availableModels.isEmpty || availableModels.length <= 5) {
+      if (apiKey.value.trim().isEmpty) {
+        availableModels.clear();
+        modelName.value = '';
+      } else if (availableModels.isEmpty || availableModels.length <= 5) {
         _populateDefaultModels(newProvider);
       }
     });
+
+    // Clear models immediately if API Key is cleared
+    ever(apiKey, (String key) {
+      if (key.trim().isEmpty) {
+        availableModels.clear();
+        modelName.value = '';
+      }
+    });
+
+    // Automatically fetch models in the background when API Key changes (debounced by 800ms)
+    debounce(apiKey, (String key) {
+      final trimmedKey = key.trim();
+      if (trimmedKey.isNotEmpty && baseUrl.value.isNotEmpty) {
+        testConnection(baseUrl.value, trimmedKey, silent: true);
+      }
+    }, time: const Duration(milliseconds: 800));
+
+    // Automatically fetch models when provider or base URL changes, if API key is not empty (debounced by 800ms)
+    debounce(baseUrl, (String url) {
+      final trimmedKey = apiKey.value.trim();
+      if (trimmedKey.isNotEmpty && url.isNotEmpty) {
+        testConnection(url, trimmedKey, silent: true);
+      }
+    }, time: const Duration(milliseconds: 800));
   }
 
   void _populateDefaultModels(String provider) {
@@ -56,11 +94,28 @@ class SystemController extends GetxController {
     providerName.value = prefs.getString('api_provider_name') ?? 'OpenRouter';
     baseUrl.value = prefs.getString('api_base_url') ?? 'https://openrouter.ai/api/v1';
     apiKey.value = prefs.getString('api_key') ?? '';
-    modelName.value = prefs.getString('api_model_name') ?? 'openai/gpt-4o';
     
-    _populateDefaultModels(providerName.value);
-    if (!availableModels.contains(modelName.value)) {
-      availableModels.insert(0, modelName.value);
+    // Load dynamic connection variables
+    connectionProtocol.value = prefs.getString('connection_protocol') ?? 'MQTT';
+    mqttPreset.value = prefs.getString('mqtt_preset') ?? 'Docker';
+    mqttHost.value = prefs.getString('mqtt_host') ?? '192.168.10.3';
+    mqttPort.value = prefs.getInt('mqtt_port') ?? 1883;
+    mqttWsPort.value = prefs.getInt('mqtt_websocket_port') ?? 9001;
+    mqttUseTls.value = prefs.getBool('mqtt_use_tls') ?? false;
+    mqttTlsHost.value = prefs.getString('mqtt_tls_host') ?? '';
+    mqttTlsWsUrl.value = prefs.getString('mqtt_tls_websocket_url') ?? '';
+    httpTargetUrl.value = prefs.getString('http_target_url') ?? 'http://192.168.10.3';
+
+    // Handle initial state depending on API key presence
+    if (apiKey.value.trim().isEmpty) {
+      modelName.value = '';
+      availableModels.clear();
+    } else {
+      modelName.value = prefs.getString('api_model_name') ?? 'openai/gpt-4o';
+      _populateDefaultModels(providerName.value);
+      if (!availableModels.contains(modelName.value)) {
+        availableModels.insert(0, modelName.value);
+      }
     }
     
     isLoading.value = false;
@@ -91,7 +146,51 @@ class SystemController extends GetxController {
     );
   }
 
-  Future<void> testConnection(String url, String key) async {
+  Future<void> saveBrokerSettings({
+    required String protocol,
+    required String preset,
+    required String host,
+    required int port,
+    required int wsPort,
+    required bool useTls,
+    required String tlsHost,
+    required String tlsWsUrl,
+    required String httpUrl,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    await prefs.setString('connection_protocol', protocol);
+    await prefs.setString('mqtt_preset', preset);
+    await prefs.setString('mqtt_host', host);
+    await prefs.setInt('mqtt_port', port);
+    await prefs.setInt('mqtt_websocket_port', wsPort);
+    await prefs.setBool('mqtt_use_tls', useTls);
+    await prefs.setString('mqtt_tls_host', tlsHost);
+    await prefs.setString('mqtt_tls_websocket_url', tlsWsUrl);
+    await prefs.setString('http_target_url', httpUrl);
+
+    connectionProtocol.value = protocol;
+    mqttPreset.value = preset;
+    mqttHost.value = host;
+    mqttPort.value = port;
+    mqttWsPort.value = wsPort;
+    mqttUseTls.value = useTls;
+    mqttTlsHost.value = tlsHost;
+    mqttTlsWsUrl.value = tlsWsUrl;
+    httpTargetUrl.value = httpUrl;
+
+    Get.snackbar(
+      'Broker Settings Saved',
+      'Connection configuration updated successfully.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.black,
+      colorText: Colors.white,
+      borderRadius: 14,
+      margin: const EdgeInsets.all(16),
+    );
+  }
+
+  Future<void> testConnection(String url, String key, {bool silent = false}) async {
     isTestingConnection.value = true;
     try {
       final uri = Uri.parse('$url/models');
@@ -115,13 +214,15 @@ class SystemController extends GetxController {
           if (availableModels.isNotEmpty && !availableModels.contains(modelName.value)) {
             modelName.value = availableModels.first;
           }
-          Get.snackbar(
-            'Connection Successful',
-            'Successfully fetched ${availableModels.length} models.',
-            snackPosition: SnackPosition.BOTTOM,
-            backgroundColor: const Color(0xFF00E676),
-            colorText: Colors.black,
-          );
+          if (!silent) {
+            Get.snackbar(
+              'Connection Successful',
+              'Successfully fetched ${availableModels.length} models.',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: const Color(0xFF00E676),
+              colorText: Colors.black,
+            );
+          }
         } else {
           throw Exception('Invalid response format: missing "data" array');
         }
@@ -129,13 +230,15 @@ class SystemController extends GetxController {
         throw Exception('Failed with status: ${response.statusCode}');
       }
     } catch (e) {
-      Get.snackbar(
-        'Connection Failed',
-        e.toString(),
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: const Color(0xFFBA1A1A),
-        colorText: Colors.white,
-      );
+      if (!silent) {
+        Get.snackbar(
+          'Connection Failed',
+          e.toString(),
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: const Color(0xFFBA1A1A),
+          colorText: Colors.white,
+        );
+      }
     } finally {
       isTestingConnection.value = false;
     }

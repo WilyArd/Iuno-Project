@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/mqtt_service.dart';
 import '../models/device_widget_model.dart';
 
@@ -44,9 +45,23 @@ class DashboardController extends GetxController {
   }
 
   Future<void> _initMqtt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final protocol = prefs.getString('connection_protocol') ?? 'MQTT';
+    if (protocol == 'HTTP') {
+      print('DashboardController: HTTP protocol selected. Skipping MQTT setup.');
+      isBrokerConnected.value = false;
+      return;
+    }
+
+    final String host = prefs.getString('mqtt_host') ?? '192.168.10.3';
+    final int port = prefs.getInt('mqtt_port') ?? 1883;
+    final bool secure = prefs.getBool('mqtt_use_tls') ?? false;
+
     mqttService.setup(
-      '192.168.10.3',
+      host,
       'flutter_iuno_client_${DateTime.now().millisecondsSinceEpoch}',
+      port: port,
+      secure: secure,
     );
 
     bool brokerConnected = await mqttService.connect();

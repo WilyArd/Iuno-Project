@@ -244,7 +244,9 @@ class MainLayout extends StatelessWidget {
 
   // ─── Mobile ────────────────────────────────────────────
   Widget _buildMobileLayout(BuildContext context) {
+    final bool isKeyboardVisible = View.of(context).viewInsets.bottom > 0;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
@@ -308,10 +310,10 @@ class MainLayout extends StatelessWidget {
       body: PageView(
         controller: controller.pageController,
         onPageChanged: controller.onPageChanged,
-        physics: const BouncingScrollPhysics(),
+        physics: const NeverScrollableScrollPhysics(),
         children: pages,
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: isKeyboardVisible ? null : _buildBottomNav(),
     );
   }
 

@@ -10,13 +10,13 @@ class MqttService {
   // menghindari bug dimana Dart single-stream membatalkan listener sebelumnya.
   final Map<String, void Function(String topic, String message)> _subscriptions = {};
 
-  void setup(String server, String clientId) {
+  void setup(String server, String clientId, {int port = 1883, bool secure = false}) {
     client = MqttServerClient(server, clientId);
-    client!.port = 1883;
+    client!.port = port;
     client!.keepAlivePeriod = 20;
     client!.connectTimeoutPeriod = 5000;
     client!.onDisconnected = _onDisconnected;
-    client!.secure = false;
+    client!.secure = secure;
     client!.logging(on: false);
 
     final connMess = MqttConnectMessage()
