@@ -406,8 +406,14 @@ class DashboardController extends GetxController {
   }
 
   void sendCommand(DeviceWidgetModel device, String command) {
-    if (device.commandTopic.isNotEmpty) {
-      mqttService.publish(device.commandTopic, command);
+    if (isBrokerConnected.value && device.commandTopic.isNotEmpty) {
+      try {
+        mqttService.publish(device.commandTopic, command);
+      } catch (e) {
+        print('Error publishing MQTT command: $e');
+      }
+    } else {
+      print('MQTT Broker is disconnected. Command "${command}" to "${device.commandTopic}" was simulated locally.');
     }
   }
 
