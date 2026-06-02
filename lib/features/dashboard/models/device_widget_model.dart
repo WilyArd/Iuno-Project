@@ -34,4 +34,15 @@ class DeviceWidgetModel {
       commandTopic: json['command_topic'] ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'type': type,
+      'name': name,
+      'unit': unit,
+      'state_topic': stateTopic,
+      'command_topic': commandTopic,
+    };
+  }
 }

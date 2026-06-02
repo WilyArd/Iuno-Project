@@ -112,10 +112,10 @@ class MainLayout extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Text(
-                      'IUNO',
-                      style: GoogleFonts.spaceGrotesk(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w900,
+                      'iuno',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF0A1F30), // Official Brand Navy
+                        fontWeight: FontWeight.w700,
                         fontSize: 26,
                         letterSpacing: -0.5,
                       ),
@@ -282,10 +282,10 @@ class MainLayout extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        'IUNO',
-                        style: GoogleFonts.spaceGrotesk(
-                          color: Colors.black,
-                          fontWeight: FontWeight.w900,
+                        'iuno',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFF0A1F30), // Official Brand Navy
+                          fontWeight: FontWeight.w700,
                           fontSize: 22,
                           letterSpacing: -0.5,
                         ),

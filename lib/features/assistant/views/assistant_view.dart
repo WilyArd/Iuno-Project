@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../controllers/assistant_controller.dart';
 import '../../dashboard/controllers/dashboard_controller.dart';
+import '../../system/controllers/system_controller.dart';
 
 class AssistantView extends StatelessWidget {
   AssistantView({super.key});
@@ -16,23 +17,59 @@ class AssistantView extends StatelessWidget {
     if (!Get.isRegistered<DashboardController>()) {
       Get.put(DashboardController());
     }
+    final systemCtrl = Get.find<SystemController>();
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Elegant Assistant Header
           Row(
             children: [
-              const Icon(Icons.smart_toy, size: 32, color: Colors.black),
-              const SizedBox(width: 12),
-              Text(
-                'AI ASSISTANT (CLAW)',
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black,
-                  letterSpacing: -1,
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE0F2FE), // Soft blue bg
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFF0EA5E9), // Cyan/Blue icon
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI Assistant',
+                      style: GoogleFonts.outfit(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF0A1F30), // Brand Navy
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    Obx(() {
+                      final prov = systemCtrl.providerName.value;
+                      final model = systemCtrl.modelName.value;
+                      final isKeyEmpty = systemCtrl.apiKey.value.trim().isEmpty;
+                      return Text(
+                        isKeyEmpty
+                            ? 'Offline • Configure API Key in System'
+                            : 'Online • Powered by $prov ($model)',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isKeyEmpty ? const Color(0xFFEF4444) : const Color(0xFF0D9488),
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ),
             ],
@@ -43,87 +80,142 @@ class AssistantView extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: Colors.black, width: 3),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFEEEEEE), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
                 ],
               ),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Obx(() => ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: controller.messages.length,
-                      itemBuilder: (context, index) {
-                        final msg = controller.messages[index];
-                        return _buildChatBubble(msg.text, msg.isUser);
-                      },
-                    )),
-                  ),
-                  Obx(() {
-                    if (controller.isTyping.value) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'AI is typing...',
-                            style: GoogleFonts.spaceGrotesk(
-                              color: Colors.grey,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  }),
-                  Container(
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Colors.black, width: 3)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Column(
+                  children: [
+                    // Chat messages list
+                    Expanded(
+                      child: Obx(() => ListView.builder(
+                        padding: const EdgeInsets.all(20),
+                        itemCount: controller.messages.length,
+                        itemBuilder: (context, index) {
+                          final msg = controller.messages[index];
+                          return _buildChatBubble(msg.text, msg.isUser);
+                        },
+                      )),
                     ),
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: textController,
-                            style: GoogleFonts.spaceGrotesk(fontSize: 16),
-                            decoration: InputDecoration(
-                              hintText: 'Type your command...',
-                              hintStyle: GoogleFonts.spaceGrotesk(color: Colors.grey),
-                              border: const OutlineInputBorder(
-                                borderSide: BorderSide.none,
+                    
+                    // Typist thinking indicator
+                    Obx(() {
+                      if (controller.isTyping.value) {
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              contentPadding: EdgeInsets.zero,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.8,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Assistant is thinking…',
+                                    style: GoogleFonts.spaceGrotesk(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            onSubmitted: (val) {
-                              controller.sendMessage(val);
-                              textController.clear();
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    }),
+                    
+                    // Input Text Field Row
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          top: BorderSide(color: Color(0xFFEEEEEE), width: 1.5),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF7F8FA),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: const Color(0xFFE8E8E8), width: 1),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: TextField(
+                                controller: textController,
+                                style: GoogleFonts.spaceGrotesk(fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: 'Ask assistant or type command…',
+                                  hintStyle: GoogleFonts.spaceGrotesk(
+                                    color: const Color(0xFFBBBBBB),
+                                    fontSize: 13,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                onSubmitted: (val) {
+                                  if (val.trim().isNotEmpty) {
+                                    controller.sendMessage(val);
+                                    textController.clear();
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          GestureDetector(
+                            onTap: () {
+                              if (textController.text.trim().isNotEmpty) {
+                                controller.sendMessage(textController.text);
+                                textController.clear();
+                              }
                             },
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            controller.sendMessage(textController.text);
-                            textController.clear();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFE600),
-                              border: Border.all(color: Colors.black, width: 2),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black, offset: Offset(2, 2)),
-                              ],
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF0A1F30), // Brand Navy
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.arrow_upward_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                             ),
-                            child: const Icon(Icons.send, color: Colors.black),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -133,24 +225,44 @@ class AssistantView extends StatelessWidget {
   }
 
   Widget _buildChatBubble(String text, bool isUser) {
+    final bg = isUser ? const Color(0xFF0A1F30) : const Color(0xFFF1F5F9);
+    final fg = isUser ? Colors.white : const Color(0xFF1E293B);
+    final border = isUser
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(16),
+          )
+        : const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomRight: Radius.circular(16),
+          );
+
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        constraints: const BoxConstraints(maxWidth: 300),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        constraints: const BoxConstraints(maxWidth: 280),
         decoration: BoxDecoration(
-          color: isUser ? const Color(0xFFFFE600) : const Color(0xFFF0F0F0),
-          border: Border.all(color: Colors.black, width: 2),
-          boxShadow: const [
-             BoxShadow(color: Colors.black, offset: Offset(2, 2)),
+          color: bg,
+          borderRadius: border,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
           ],
         ),
         child: Text(
           text,
           style: GoogleFonts.spaceGrotesk(
-            color: Colors.black,
+            color: fg,
+            fontSize: 14,
             fontWeight: FontWeight.w500,
+            height: 1.4,
           ),
         ),
       ),

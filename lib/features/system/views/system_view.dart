@@ -118,7 +118,7 @@ class SystemView extends StatelessWidget {
                 children: [
                   // 1. MQTT Broker Configuration
                   _buildSettingTile(
-                    icon: Icons.hub_rounded,
+                    icon: Icons.router_rounded,
                     iconColor: const Color(0xFF0288D1),
                     iconBgColor: const Color(0xFFE1F5FE),
                     title: 'MQTT Broker',
@@ -126,6 +126,18 @@ class SystemView extends StatelessWidget {
                     isExpanded: expanded == 'Broker',
                     onTap: () => _toggleTile('Broker'),
                     child: _buildBrokerCardContent(dash),
+                  ),
+
+                  // 2. Simulation & Demo Mode
+                  _buildSettingTile(
+                    icon: Icons.smart_toy_rounded,
+                    iconColor: const Color(0xFF0D9488),
+                    iconBgColor: const Color(0xFFE6F4F1),
+                    title: 'Simulation & Demo Mode',
+                    subtitle: dash.isDemoMode.value ? 'Simulated Data Active' : 'Simulated Data Inactive',
+                    isExpanded: expanded == 'Simulation',
+                    onTap: () => _toggleTile('Simulation'),
+                    child: _buildSimulationContent(dash),
                   ),
 
                   // 2. AI API Provider Configuration
@@ -319,6 +331,73 @@ class SystemView extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ─── Simulation & Demo Mode Content ───────────────────
+  Widget _buildSimulationContent(DashboardController dash) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enable Demo Mode',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF0A1F30),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Generates realistic simulated data for testing when the broker is disconnected.',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 12,
+                        color: const Color(0xFF888888),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Obx(() => Switch.adaptive(
+                    value: dash.isDemoMode.value,
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: const Color(0xFF0D9488),
+                    onChanged: (val) {
+                      dash.setDemoMode(val);
+                      Get.snackbar(
+                        val ? 'Demo Mode Active' : 'Real Mode Active',
+                        val 
+                            ? 'Simulated sensors have been loaded.'
+                            : 'Simulated sensors cleared. Waiting for real MQTT data stream.',
+                        snackPosition: SnackPosition.BOTTOM,
+                        backgroundColor: val ? const Color(0xFF0D9488) : Colors.black,
+                        colorText: Colors.white,
+                        borderRadius: 14,
+                        margin: const EdgeInsets.all(16),
+                        duration: const Duration(seconds: 2),
+                      );
+                    },
+                  )),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -911,18 +990,94 @@ class SystemView extends StatelessWidget {
 
   // ─── System Info Content ──────────────────────────────
   Widget _buildSystemInfoContent() {
-    return Table(
-      columnWidths: const {
-        0: FlexColumnWidth(1.2),
-        1: FlexColumnWidth(2),
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoRow('OS Version', 'Linux (CachyOS 7.0.10)'),
-        _buildInfoRow('Device Model', 'Acer Swift SFX14-41G'),
-        _buildInfoRow('CPU Core Count', 'AMD Ryzen 5 5500U (12 Cores)'),
-        _buildInfoRow('Flutter SDK', 'v3.44.1 (Stable Channel)'),
-        _buildInfoRow('Dart SDK', 'v3.12.0'),
-        _buildInfoRow('Broker Target', '192.168.10.3 (MQTT Port 1883)'),
+        Table(
+          columnWidths: const {
+            0: FlexColumnWidth(1.2),
+            1: FlexColumnWidth(2),
+          },
+          children: [
+            _buildInfoRow('OS Version', 'Linux (CachyOS 7.0.10)'),
+            _buildInfoRow('Device Model', 'Acer Swift SFX14-41G'),
+            _buildInfoRow('CPU Core Count', 'AMD Ryzen 5 5500U (12 Cores)'),
+            _buildInfoRow('Flutter SDK', 'v3.44.1 (Stable Channel)'),
+            _buildInfoRow('Dart SDK', 'v3.12.0'),
+            _buildInfoRow('Broker Target', '192.168.10.3 (MQTT Port 1883)'),
+            _buildInfoRow('GitHub Repo', 'WilyArd/Iuno-Project'),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Premium GitHub Link Card
+        GestureDetector(
+          onTap: () {
+            Get.snackbar(
+              'Opening Repository',
+              'Redirecting to github.com/WilyArd/Iuno-Project...',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: Colors.black,
+              colorText: Colors.white,
+              borderRadius: 14,
+              margin: const EdgeInsets.all(16),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F8FA),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE8E8E8)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0F172A),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.code_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'View Source Code',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'github.com/WilyArd/Iuno-Project',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF777777),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.open_in_new_rounded,
+                  color: Color(0xFF888888),
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
