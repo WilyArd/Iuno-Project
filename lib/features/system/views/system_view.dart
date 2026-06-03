@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../controllers/system_controller.dart';
 import '../../dashboard/controllers/dashboard_controller.dart';
 
 class SystemView extends StatelessWidget {
   final SystemController controller = Get.find<SystemController>();
-  final RxString _expandedTile = 'AI'.obs;
+  final RxString _expandedTile = ''.obs;
 
   final baseUrlController = TextEditingController();
   final apiKeyController = TextEditingController();
@@ -58,162 +59,213 @@ class SystemView extends StatelessWidget {
     final dash = Get.find<DashboardController>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: const Color(0xFFF0F2F8),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 100),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Page title
-            Text(
-              'System',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: Colors.black,
-                letterSpacing: -0.5,
-              ),
+            // ── Premium gradient header ──
+            _buildHeroHeader(dash),
+
+            // ── Setting Cards ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: Obx(() {
+                final expanded = _expandedTile.value;
+                final brokerOk = dash.isBrokerConnected.value;
+                final deviceLive = dash.isDeviceConnected.value;
+                final savedHost = controller.mqttTlsHost.value.isNotEmpty
+                    ? controller.mqttTlsHost.value
+                    : (controller.mqttHost.value.isNotEmpty
+                        ? controller.mqttHost.value
+                        : 'Not configured');
+                final String brokerStatus = dash.isConnecting.value
+                    ? 'Connecting\u2026'
+                    : deviceLive
+                        ? 'Live'
+                        : (brokerOk ? 'Broker OK' : 'Offline');
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader('Connection'),
+                    _buildSettingTile(
+                      icon: Icons.router_rounded,
+                      iconColor: const Color(0xFF0EA5E9),
+                      title: 'MQTT Broker',
+                      subtitle: '$savedHost  ·  $brokerStatus',
+                      statusDot: brokerOk ? const Color(0xFF22C55E) : (dash.isConnecting.value ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+                      isExpanded: expanded == 'Broker',
+                      onTap: () => _toggleTile('Broker'),
+                      child: _buildBrokerCardContent(dash),
+                    ),
+                    _buildSettingTile(
+                      icon: Icons.science_rounded,
+                      iconColor: const Color(0xFF0D9488),
+                      title: 'Demo Mode',
+                      subtitle: dash.isDemoMode.value ? 'Simulated data active' : 'Real MQTT data',
+                      statusDot: dash.isDemoMode.value ? const Color(0xFF0D9488) : null,
+                      isExpanded: expanded == 'Simulation',
+                      onTap: () => _toggleTile('Simulation'),
+                      child: _buildSimulationContent(dash),
+                    ),
+                    _buildSectionHeader('Intelligence'),
+                    _buildSettingTile(
+                      icon: Icons.auto_awesome_rounded,
+                      iconColor: const Color(0xFF8B5CF6),
+                      title: 'AI Provider',
+                      subtitle: '${controller.providerName.value}  ·  ${controller.modelName.value.isEmpty ? "Not set" : controller.modelName.value}',
+                      isExpanded: expanded == 'AI',
+                      onTap: () => _toggleTile('AI'),
+                      child: controller.isLoading.value
+                          ? const Center(child: CircularProgressIndicator())
+                          : _buildAiCardContent(context),
+                    ),
+                    _buildSectionHeader('App'),
+                    _buildSettingTile(
+                      icon: Icons.palette_rounded,
+                      iconColor: const Color(0xFFF97316),
+                      title: 'Theme & Appearance',
+                      subtitle: 'Space Grotesk  ·  Light Mode',
+                      isExpanded: expanded == 'Theme',
+                      onTap: () => _toggleTile('Theme'),
+                      child: _buildThemeContent(),
+                    ),
+                    _buildSettingTile(
+                      icon: Icons.info_outline_rounded,
+                      iconColor: const Color(0xFF64748B),
+                      title: 'About & Version',
+                      subtitle: 'IUNO IoT  ·  v1.0.0-beta.1',
+                      isExpanded: expanded == 'Info',
+                      onTap: () => _toggleTile('Info'),
+                      child: _buildSystemInfoContent(),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                );
+              }),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Manage your broker connection and AI settings.',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 13,
-                color: const Color(0xFF999999),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Search Bar (Inspired by the reference design)
-            _buildSearchBar(),
-            const SizedBox(height: 24),
-
-            // Grouped Setting Cards
-            Obx(() {
-              final expanded = _expandedTile.value;
-
-              // Dynamic subtitle for Broker status
-              final brokerOk = dash.isBrokerConnected.value;
-              final deviceLive = dash.isDeviceConnected.value;
-              final savedHost = controller.mqttTlsHost.value.isNotEmpty
-                  ? controller.mqttTlsHost.value
-                  : (controller.mqttHost.value.isNotEmpty ? controller.mqttHost.value : 'Not configured');
-              final String brokerStatus = dash.isConnecting.value
-                  ? 'Connecting…'
-                  : deviceLive
-                      ? 'Live'
-                      : (brokerOk ? 'Broker OK' : 'Offline');
-              final String brokerSubtitle = '$savedHost • $brokerStatus';
-
-              // Dynamic subtitle for AI active configurations
-              final String aiSubtitle =
-                  'Active: ${controller.providerName.value} • ${controller.modelName.value}';
-
-              return Column(
-                children: [
-                  // 1. MQTT Broker Configuration
-                  _buildSettingTile(
-                    icon: Icons.router_rounded,
-                    iconColor: const Color(0xFF0288D1),
-                    iconBgColor: const Color(0xFFE1F5FE),
-                    title: 'MQTT Broker',
-                    subtitle: brokerSubtitle,
-                    isExpanded: expanded == 'Broker',
-                    onTap: () => _toggleTile('Broker'),
-                    child: _buildBrokerCardContent(dash),
-                  ),
-
-                  // 2. Simulation & Demo Mode
-                  _buildSettingTile(
-                    icon: Icons.smart_toy_rounded,
-                    iconColor: const Color(0xFF0D9488),
-                    iconBgColor: const Color(0xFFE6F4F1),
-                    title: 'Simulation & Demo Mode',
-                    subtitle: dash.isDemoMode.value ? 'Simulated Data Active' : 'Simulated Data Inactive',
-                    isExpanded: expanded == 'Simulation',
-                    onTap: () => _toggleTile('Simulation'),
-                    child: _buildSimulationContent(dash),
-                  ),
-
-                  // 2. AI API Provider Configuration
-                  _buildSettingTile(
-                    icon: Icons.auto_awesome_rounded,
-                    iconColor: const Color(0xFF7B1FA2),
-                    iconBgColor: const Color(0xFFF3E5F5),
-                    title: 'AI API Provider',
-                    subtitle: aiSubtitle,
-                    isExpanded: expanded == 'AI',
-                    onTap: () => _toggleTile('AI'),
-                    child: controller.isLoading.value
-                        ? const Center(child: CircularProgressIndicator())
-                        : _buildAiCardContent(context),
-                  ),
-
-                  // 3. Theme & Aesthetics settings (Decorative)
-                  _buildSettingTile(
-                    icon: Icons.palette_rounded,
-                    iconColor: const Color(0xFFF57C00),
-                    iconBgColor: const Color(0xFFFFF3E0),
-                    title: 'Theme & Aesthetics',
-                    subtitle: 'Space Grotesk Font • Light Mode',
-                    isExpanded: expanded == 'Theme',
-                    onTap: () => _toggleTile('Theme'),
-                    child: _buildThemeContent(),
-                  ),
-
-                  // 4. System Info (Decorative)
-                  _buildSettingTile(
-                    icon: Icons.info_rounded,
-                    iconColor: const Color(0xFFC2185B),
-                    iconBgColor: const Color(0xFFFCE4EC),
-                    title: 'System & Version',
-                    subtitle: 'IUNO IoT v1.0.0-beta.1 • Running on Linux',
-                    isExpanded: expanded == 'Info',
-                    onTap: () => _toggleTile('Info'),
-                    child: _buildSystemInfoContent(),
-                  ),
-                ],
-              );
-            }),
           ],
         ),
       ),
     );
   }
 
-  // ─── Modern Search Bar ─────────────────────────────────
-  Widget _buildSearchBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFEEEEEE), width: 1),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 18),
-          const Icon(Icons.search_rounded, color: Color(0xFF666666), size: 22),
-          const SizedBox(width: 14),
-          Expanded(
-            child: TextField(
-              style: GoogleFonts.spaceGrotesk(fontSize: 15),
-              decoration: InputDecoration(
-                hintText: 'Search Settings',
-                hintStyle: GoogleFonts.spaceGrotesk(
-                  color: const Color(0xFF888888),
-                  fontSize: 15,
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+  // ── Simple calm header ───────────────────────────────
+  Widget _buildHeroHeader(DashboardController dash) {
+    return Obx(() {
+      final brokerOk = dash.isBrokerConnected.value;
+      final deviceLive = dash.isDeviceConnected.value;
+      final isConnecting = dash.isConnecting.value;
+
+      final Color statusColor = isConnecting
+          ? const Color(0xFFF59E0B)
+          : deviceLive
+              ? const Color(0xFF22C55E)
+              : brokerOk
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFFEF4444);
+
+      final String statusText = isConnecting
+          ? 'Connecting…'
+          : deviceLive
+              ? 'Live'
+              : brokerOk
+                  ? 'Broker OK'
+                  : 'Offline';
+
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(20, 52, 20, 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'System',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Broker, AI & App Settings',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 13,
+                      color: const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
+            ),
+            // Compact status pill
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: statusColor.withValues(alpha: 0.3), width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildPulsingDot(statusColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    statusText,
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: statusColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildPulsingDot(Color color) {
+    return SizedBox(
+      width: 12,
+      height: 12,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.3),
+              shape: BoxShape.circle,
+            ),
+          ),
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
             ),
           ),
         ],
@@ -221,56 +273,93 @@ class SystemView extends StatelessWidget {
     );
   }
 
-  // ─── Custom Expandable Setting Tile ─────────────────────
+  Widget _buildSectionHeader(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 20, 0, 8),
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.spaceGrotesk(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFF94A3B8),
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+
+  // ── Custom Expandable Setting Tile ──────────────────────
   Widget _buildSettingTile({
     required IconData icon,
     required Color iconColor,
-    required Color iconBgColor,
     required String title,
     required String subtitle,
     required Widget child,
     required bool isExpanded,
     required VoidCallback onTap,
+    Color? statusDot,
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 2),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: isExpanded
+            ? [
+                BoxShadow(
+                  color: iconColor.withValues(alpha: 0.12),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
         border: Border.all(
-          color: isExpanded ? Colors.black.withValues(alpha: 0.1) : Colors.transparent,
+          color: isExpanded ? iconColor.withValues(alpha: 0.25) : Colors.transparent,
           width: 1.5,
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18),
         child: Column(
           children: [
+            // Left colored accent bar when expanded
+            if (isExpanded)
+              Container(
+                height: 3,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [iconColor.withValues(alpha: 0.8), iconColor.withValues(alpha: 0.2)],
+                  ),
+                ),
+              ),
             InkWell(
               onTap: onTap,
+              splashColor: iconColor.withValues(alpha: 0.06),
+              highlightColor: iconColor.withValues(alpha: 0.03),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Row(
                   children: [
+                    // Icon container
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 42,
+                      height: 42,
                       decoration: BoxDecoration(
-                        color: iconBgColor,
-                        shape: BoxShape.circle,
+                        color: iconColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(icon, color: iconColor, size: 22),
+                      child: Icon(icon, color: iconColor, size: 20),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,18 +368,36 @@ class SystemView extends StatelessWidget {
                             title,
                             style: GoogleFonts.spaceGrotesk(
                               fontWeight: FontWeight.w700,
-                              fontSize: 15,
-                              color: Colors.black,
+                              fontSize: 14,
+                              color: const Color(0xFF0F172A),
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            subtitle,
-                            style: GoogleFonts.spaceGrotesk(
-                              fontSize: 12,
-                              color: const Color(0xFF888888),
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              if (statusDot != null) ...[
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  margin: const EdgeInsets.only(right: 5),
+                                  decoration: BoxDecoration(
+                                    color: statusDot,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  subtitle,
+                                  style: GoogleFonts.spaceGrotesk(
+                                    fontSize: 12,
+                                    color: const Color(0xFF94A3B8),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -298,9 +405,10 @@ class SystemView extends StatelessWidget {
                     AnimatedRotation(
                       turns: isExpanded ? 0.5 : 0.0,
                       duration: const Duration(milliseconds: 200),
-                      child: const Icon(
+                      child: Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        color: Color(0xFF888888),
+                        color: isExpanded ? iconColor : const Color(0xFFCBD5E1),
+                        size: 22,
                       ),
                     ),
                   ],
@@ -311,9 +419,9 @@ class SystemView extends StatelessWidget {
               firstChild: const SizedBox.shrink(),
               secondChild: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFC),
+                  color: const Color(0xFFF8FAFC),
                   border: Border(
-                    top: BorderSide(color: Color(0xFFEEEEEE), width: 1),
+                    top: BorderSide(color: iconColor.withValues(alpha: 0.1), width: 1),
                   ),
                 ),
                 padding: const EdgeInsets.all(20),
@@ -1004,49 +1112,54 @@ class SystemView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Table(
-          columnWidths: const {
-            0: FlexColumnWidth(1.2),
-            1: FlexColumnWidth(2),
-          },
-          children: [
-            _buildInfoRow('OS Version', 'Linux (CachyOS 7.0.10)'),
-            _buildInfoRow('Device Model', 'Acer Swift SFX14-41G'),
-            _buildInfoRow('CPU Core Count', 'AMD Ryzen 5 5500U (12 Cores)'),
-            _buildInfoRow('Flutter SDK', 'v3.44.1 (Stable Channel)'),
-            _buildInfoRow('Dart SDK', 'v3.12.0'),
-            _buildInfoRow('Broker Target', '192.168.10.3 (MQTT Port 1883)'),
-            _buildInfoRow('GitHub Repo', 'WilyArd/Iuno-Project'),
-          ],
-        ),
+        Obx(() {
+          final host = controller.mqttTlsHost.value.isNotEmpty
+              ? controller.mqttTlsHost.value
+              : (controller.mqttHost.value.isNotEmpty
+                  ? controller.mqttHost.value
+                  : 'Not configured');
+          final port = controller.mqttPort.value;
+          final protocolLabel = controller.mqttUseTls.value ? 'MQTTS' : 'MQTT';
+          final brokerTarget = '$host ($protocolLabel Port $port)';
+
+          return Table(
+            columnWidths: const {
+              0: FlexColumnWidth(1.2),
+              1: FlexColumnWidth(2),
+            },
+            children: [
+              _buildInfoRow('OS Version', controller.osVersion.value),
+              _buildInfoRow('Device Model', controller.deviceModel.value),
+              _buildInfoRow('CPU Core Count', controller.cpuCoreCount.value),
+              _buildInfoRow('Flutter SDK', 'v3.11.4+ (Stable Channel)'),
+              _buildInfoRow('Dart SDK', controller.dartVersion.value),
+              _buildInfoRow('Broker Target', brokerTarget),
+              _buildInfoRow('GitHub Repo', 'WilyArd/Iuno-Project'),
+            ],
+          );
+        }),
         const SizedBox(height: 16),
-        // Premium GitHub Link Card
+        // GitHub Link Card
         GestureDetector(
-          onTap: () {
-            Get.snackbar(
-              'Opening Repository',
-              'Redirecting to github.com/WilyArd/Iuno-Project...',
-              snackPosition: SnackPosition.BOTTOM,
-              backgroundColor: Colors.black,
-              colorText: Colors.white,
-              borderRadius: 14,
-              margin: const EdgeInsets.all(16),
-            );
+          onTap: () async {
+            final uri = Uri.parse('https://github.com/WilyArd/Iuno-Project');
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7F8FA),
+              color: const Color(0xFF0F172A),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE8E8E8)),
             ),
             child: Row(
               children: [
                 Container(
                   width: 32,
                   height: 32,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF0F172A),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -1065,7 +1178,7 @@ class SystemView extends StatelessWidget {
                         style: GoogleFonts.spaceGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0F172A),
+                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1074,7 +1187,7 @@ class SystemView extends StatelessWidget {
                         style: GoogleFonts.spaceGrotesk(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFF777777),
+                          color: Colors.white.withValues(alpha: 0.55),
                         ),
                       ),
                     ],
@@ -1082,7 +1195,7 @@ class SystemView extends StatelessWidget {
                 ),
                 const Icon(
                   Icons.open_in_new_rounded,
-                  color: Color(0xFF888888),
+                  color: Colors.white54,
                   size: 16,
                 ),
               ],

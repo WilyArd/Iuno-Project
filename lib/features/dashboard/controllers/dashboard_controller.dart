@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/mqtt_service.dart';
+import '../../../core/services/mqtt_foreground_service.dart';
 import '../models/device_widget_model.dart';
 
 class DashboardController extends GetxController with WidgetsBindingObserver {
@@ -25,37 +28,34 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
   var isDemoMode = true.obs;
   Timer? _simulationTimer;
 
-  /// Track if connection was manually initiated so we can auto-reconnect on resume
-  bool _wasConnectedBeforePause = false;
-
   @override
   void onInit() {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
     _loadDevicesFromPrefs();
     _startSimulation();
+    _initForegroundService();
     _initMqtt();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.paused) {
-      // Screen off / app backgrounded: save connection state & disconnect cleanly
-      _wasConnectedBeforePause = isBrokerConnected.value;
-      if (isBrokerConnected.value) {
-        mqttService.disconnect();
-        _esp32TimeoutTimer?.cancel();
-        isBrokerConnected.value = false;
-        isDeviceConnected.value = false;
-      }
-    } else if (state == AppLifecycleState.resumed) {
-      // Screen on / app foregrounded: reconnect if we were connected before
-      if (_wasConnectedBeforePause && !isBrokerConnected.value && !isConnecting.value) {
-        _wasConnectedBeforePause = false;
-        isConnecting.value = true;
-        _initMqtt().then((_) => isConnecting.value = false);
-      }
+    // When the foreground service is active, it maintains the MQTT socket.
+    // We no longer disconnect on pause — the service does the keep-alive.
+    // The service stops automatically when the user swipes the app from recents
+    // (android:stopWithTask="true" in AndroidManifest).
+    if (state == AppLifecycleState.resumed) {
+      // App is foregrounded — sync UI state with actual connection state
+      _checkAndReconnectIfNeeded();
+    }
+  }
+
+  void _checkAndReconnectIfNeeded() {
+    if (!isBrokerConnected.value && !isConnecting.value) {
+      // Service may have had a connection error — try reconnecting
+      isConnecting.value = true;
+      _initMqtt().then((_) => isConnecting.value = false);
     }
   }
 
@@ -316,7 +316,8 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
 
   Future<void> toggleConnection() async {
     if (isBrokerConnected.value) {
-      // Manual disconnect
+      // Manual disconnect — stop foreground service and MQTT
+      await _stopForegroundService();
       mqttService.disconnect();
       _esp32TimeoutTimer?.cancel();
       isBrokerConnected.value = false;
@@ -390,6 +391,8 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
 
     if (brokerConnected) {
       isBrokerConnected.value = true;
+      // Start the foreground service so MQTT stays alive in background
+      _startForegroundService();
 
       // ✅ Subscribe ke pattern yang cocok dengan ESP32:
       mqttService.subscribe('iuno/+/discovery/#', (topic, message) {
@@ -477,9 +480,59 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  // ─── Foreground Service helpers ───────────────────────────────
+
+  void _initForegroundService() {
+    if (!Platform.isAndroid) return;
+    // Configure the foreground service (notification channel, options, etc.)
+    initMqttForegroundService();
+    // Listen for events sent from the background isolate (TaskHandler)
+    FlutterForegroundTask.addTaskDataCallback(_onForegroundServiceData);
+  }
+
+  void _onForegroundServiceData(Object data) {
+    if (data is Map) {
+      final event = data['event'] as String?;
+      if (event == 'connection_changed') {
+        final connected = data['connected'] as bool? ?? false;
+        // Update UI state based on background connection result
+        isBrokerConnected.value = connected;
+        if (!connected) isDeviceConnected.value = false;
+      }
+    }
+  }
+
+  Future<void> _startForegroundService() async {
+    if (!Platform.isAndroid) return;
+    // Request notification permission (Android 13+)
+    final notifPerm = await FlutterForegroundTask.checkNotificationPermission();
+    if (notifPerm != NotificationPermission.granted) {
+      await FlutterForegroundTask.requestNotificationPermission();
+    }
+    if (await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.restartService();
+    } else {
+      await FlutterForegroundTask.startService(
+        serviceId: 1001,
+        notificationTitle: 'iuno',
+        notificationText: 'Connected • Monitoring IoT',
+        callback: mqttForegroundServiceCallback,
+      );
+    }
+  }
+
+  Future<void> _stopForegroundService() async {
+    if (!Platform.isAndroid) return;
+    if (await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.stopService();
+    }
+    FlutterForegroundTask.removeTaskDataCallback(_onForegroundServiceData);
+  }
+
   @override
   void onClose() {
     WidgetsBinding.instance.removeObserver(this);
+    FlutterForegroundTask.removeTaskDataCallback(_onForegroundServiceData);
     _simulationTimer?.cancel();
     _esp32TimeoutTimer?.cancel();
     mqttService.disconnect();

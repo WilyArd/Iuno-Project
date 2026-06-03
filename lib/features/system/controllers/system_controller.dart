@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 
 class SystemController extends GetxController {
   final providerName = 'OpenRouter'.obs;
@@ -23,6 +25,12 @@ class SystemController extends GetxController {
   final mqttUsername = ''.obs;
   final mqttPassword = ''.obs;
 
+  // Dynamic device info variables
+  final osVersion = 'Loading...'.obs;
+  final deviceModel = 'Loading...'.obs;
+  final cpuCoreCount = 'Loading...'.obs;
+  final dartVersion = 'Loading...'.obs;
+
   final isLoading = true.obs;
   final isTestingConnection = false.obs;
   
@@ -33,6 +41,7 @@ class SystemController extends GetxController {
   void onInit() {
     super.onInit();
     _loadSettings();
+    _loadDynamicDeviceInfo();
     
     // Listen to provider name changes to update default models if we haven't fetched real ones (and API key is not empty)
     ever(providerName, (String newProvider) {
@@ -251,6 +260,58 @@ class SystemController extends GetxController {
       }
     } finally {
       isTestingConnection.value = false;
+    }
+  }
+
+  Future<void> _loadDynamicDeviceInfo() async {
+    try {
+      cpuCoreCount.value = '${Platform.numberOfProcessors} Cores';
+
+      final fullDartVersion = Platform.version;
+      final spaceIndex = fullDartVersion.indexOf(' ');
+      if (spaceIndex != -1) {
+        dartVersion.value = 'v${fullDartVersion.substring(0, spaceIndex)}';
+      } else {
+        dartVersion.value = 'v$fullDartVersion';
+      }
+
+      final deviceInfo = DeviceInfoPlugin();
+
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        final brand = androidInfo.brand;
+        final model = androidInfo.model;
+        final formattedBrand = brand.isNotEmpty
+            ? '${brand[0].toUpperCase()}${brand.substring(1)}'
+            : '';
+        deviceModel.value = formattedBrand.isNotEmpty && !model.toLowerCase().contains(formattedBrand.toLowerCase())
+            ? '$formattedBrand $model'
+            : model;
+        osVersion.value = 'Android ${androidInfo.version.release} (SDK ${androidInfo.version.sdkInt})';
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        deviceModel.value = iosInfo.name;
+        osVersion.value = 'iOS ${iosInfo.systemVersion}';
+      } else if (Platform.isLinux) {
+        final linuxInfo = await deviceInfo.linuxInfo;
+        deviceModel.value = linuxInfo.prettyName;
+        osVersion.value = 'Linux (${linuxInfo.name} ${linuxInfo.versionId})';
+      } else if (Platform.isMacOS) {
+        final macInfo = await deviceInfo.macOsInfo;
+        deviceModel.value = macInfo.model;
+        osVersion.value = 'macOS ${macInfo.osRelease}';
+      } else if (Platform.isWindows) {
+        final winInfo = await deviceInfo.windowsInfo;
+        deviceModel.value = winInfo.computerName;
+        osVersion.value = 'Windows ${winInfo.releaseId}';
+      } else {
+        deviceModel.value = Platform.operatingSystem;
+        osVersion.value = Platform.operatingSystemVersion;
+      }
+    } catch (e) {
+      debugPrint('Error loading dynamic device info: $e');
+      deviceModel.value = Platform.operatingSystem;
+      osVersion.value = Platform.operatingSystemVersion;
     }
   }
 }

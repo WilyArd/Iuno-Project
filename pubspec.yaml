@@ -7,14 +7,17 @@ environment:
   sdk: ^3.11.4
 
 dependencies:
+  device_info_plus: ^10.1.0
   fl_chart: ^1.2.0
   flutter:
     sdk: flutter
+  flutter_foreground_task: ^9.2.2
   get: ^4.7.3
   google_fonts: ^8.1.0
   http: ^1.6.0
   mqtt_client: ^10.11.11
   shared_preferences: ^2.5.5
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

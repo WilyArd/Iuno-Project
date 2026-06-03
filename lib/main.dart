@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:get/get.dart';
 import 'features/splash/views/splash_view.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Initialize port for communication between TaskHandler and UI isolate
+  FlutterForegroundTask.initCommunicationPort();
   runApp(const MainApp());
 }
 
