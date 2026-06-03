@@ -11,28 +11,38 @@ class MqttService {
   final Map<String, void Function(String topic, String message)> _subscriptions = {};
 
   void setup(String server, String clientId, {int port = 1883, bool secure = false}) {
-    client = MqttServerClient(server, clientId);
-    client!.port = port;
+    // Use withPort constructor as recommended by HiveMQ official Dart guide
+    client = MqttServerClient.withPort(server, clientId, port);
     client!.keepAlivePeriod = 20;
-    client!.connectTimeoutPeriod = 5000;
+    client!.connectTimeoutPeriod = 10000; // 10s — TLS handshake needs more time
     client!.onDisconnected = _onDisconnected;
     client!.secure = secure;
-    client!.logging(on: false);
+    client!.logging(on: true); // Enable logging so we can see errors
 
+    if (secure) {
+      // Both lines required per HiveMQ official Dart getting-started guide
+      client!.securityContext = SecurityContext.defaultContext;
+      client!.onBadCertificate = (dynamic certificate) => true;
+    }
+
+    // MQTT 3.1.1 required by HiveMQ Cloud (ProtocolName=MQTT, ProtocolVersion=4)
+    // Do NOT set WillQos without a Will topic - it's a protocol violation HiveMQ rejects
     final connMess = MqttConnectMessage()
         .withClientIdentifier(clientId)
-        .startClean()
-        .withWillQos(MqttQos.atLeastOnce);
+        .withProtocolName('MQTT')
+        .withProtocolVersion(4)
+        .startClean();
     client!.connectionMessage = connMess;
   }
 
-  Future<bool> connect() async {
+  Future<bool> connect({String? username, String? password}) async {
     try {
-      await client!.connect().timeout(
-        const Duration(seconds: 8),
+      print('MQTT: Attempting connect → host=${client!.server} port=${client!.port} secure=${client!.secure}');
+      await client!.connect(username, password).timeout(
+        const Duration(seconds: 15), // Longer timeout for TLS cloud connections
         onTimeout: () {
           client!.disconnect();
-          throw TimeoutException('MQTT connection timed out');
+          throw TimeoutException('MQTT connection timed out after 15s');
         },
       );
     } on NoConnectionException catch (e) {
@@ -47,19 +57,19 @@ class MqttService {
       print('MQTT: TimeoutException - $e');
       return false;
     } catch (e) {
-      print('MQTT: Unknown error - $e');
+      print('MQTT: Unknown error - ${e.runtimeType}: $e');
       client?.disconnect();
       return false;
     }
 
     if (client!.connectionStatus!.state == MqttConnectionState.connected) {
-      print('MQTT: Connected');
+      print('MQTT: Connected successfully!');
 
       // ✅ Daftarkan SATU listener global untuk semua incoming messages
       client!.updates!.listen(_onMessage);
       return true;
     } else {
-      print('MQTT: Failed - ${client!.connectionStatus!.state}');
+      print('MQTT: Failed - state=${client!.connectionStatus!.state} returnCode=${client!.connectionStatus!.returnCode}');
       client!.disconnect();
       return false;
     }

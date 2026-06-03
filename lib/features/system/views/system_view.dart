@@ -20,6 +20,8 @@ class SystemView extends StatelessWidget {
   final mqttTlsHostController = TextEditingController();
   final mqttTlsWsUrlController = TextEditingController();
   final httpUrlController = TextEditingController();
+  final mqttUsernameController = TextEditingController();
+  final mqttPasswordController = TextEditingController();
 
   SystemView({super.key}) {
     ever(controller.isLoading, (isLoading) {
@@ -34,6 +36,8 @@ class SystemView extends StatelessWidget {
         mqttTlsHostController.text = controller.mqttTlsHost.value;
         mqttTlsWsUrlController.text = controller.mqttTlsWsUrl.value;
         httpUrlController.text = controller.httpTargetUrl.value;
+        mqttUsernameController.text = controller.mqttUsername.value;
+        mqttPasswordController.text = controller.mqttPassword.value;
       }
     });
     ever(controller.modelName, (model) {
@@ -50,6 +54,8 @@ class SystemView extends StatelessWidget {
       mqttTlsHostController.text = controller.mqttTlsHost.value;
       mqttTlsWsUrlController.text = controller.mqttTlsWsUrl.value;
       httpUrlController.text = controller.httpTargetUrl.value;
+      mqttUsernameController.text = controller.mqttUsername.value;
+      mqttPasswordController.text = controller.mqttPassword.value;
     }
   }
 
@@ -502,11 +508,12 @@ class SystemView extends StatelessWidget {
                       isSelected: controller.mqttPreset.value == 'HiveMQ',
                       onTap: () {
                         controller.mqttPreset.value = 'HiveMQ';
-                        mqttHostController.text = 'broker.hivemq.com';
-                        mqttPortController.text = '1883';
-                        mqttWsPortController.text = '8000';
-                        mqttTlsHostController.text = 'broker.hivemq.com';
-                        mqttTlsWsUrlController.text = 'wss://broker.hivemq.com:8884/mqtt';
+                        controller.mqttUseTls.value = true;
+                        mqttHostController.text = '';
+                        mqttPortController.text = '8883';
+                        mqttWsPortController.text = '8884';
+                        mqttTlsHostController.text = '';
+                        mqttTlsWsUrlController.text = '';
                       },
                     ),
                   ),
@@ -551,7 +558,39 @@ class SystemView extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              // Username & Password Fields
+              Obx(() {
+                final preset = controller.mqttPreset.value;
+                if (preset == 'HiveMQ' || preset == 'Custom' || controller.mqttUseTls.value) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTextField(
+                              ctrl: mqttUsernameController,
+                              label: 'MQTT Username',
+                              hint: 'e.g., ardwily',
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildTextField(
+                              ctrl: mqttPasswordController,
+                              label: 'MQTT Password',
+                              hint: '••••••••',
+                              isObscure: true,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              }),
 
               // TLS Security Toggle
               Row(
@@ -691,6 +730,8 @@ class SystemView extends StatelessWidget {
           tlsHost: mqttTlsHostController.text.trim(),
           tlsWsUrl: mqttTlsWsUrlController.text.trim(),
           httpUrl: httpUrlController.text.trim(),
+          username: mqttUsernameController.text.trim(),
+          password: mqttPasswordController.text,
         );
       },
     );
@@ -799,7 +840,29 @@ class SystemView extends StatelessWidget {
                   : dash.isBrokerConnected.value
                       ? 'Disconnect'
                       : 'Connect Now',
-              onTap: dash.toggleConnection,
+              onTap: () async {
+                if (dash.isConnecting.value) return;
+
+                if (dash.isBrokerConnected.value) {
+                  await dash.toggleConnection();
+                } else {
+                  // Auto-save settings first so the controller reads the latest input values
+                  await controller.saveBrokerSettings(
+                    protocol: controller.connectionProtocol.value,
+                    preset: controller.mqttPreset.value,
+                    host: mqttHostController.text.trim(),
+                    port: int.tryParse(mqttPortController.text.trim()) ?? 1883,
+                    wsPort: int.tryParse(mqttWsPortController.text.trim()) ?? 9001,
+                    useTls: controller.mqttUseTls.value,
+                    tlsHost: mqttTlsHostController.text.trim(),
+                    tlsWsUrl: mqttTlsWsUrlController.text.trim(),
+                    httpUrl: httpUrlController.text.trim(),
+                    username: mqttUsernameController.text.trim(),
+                    password: mqttPasswordController.text,
+                  );
+                  await dash.toggleConnection();
+                }
+              },
               isLoading: dash.isConnecting.value,
             )),
       ],

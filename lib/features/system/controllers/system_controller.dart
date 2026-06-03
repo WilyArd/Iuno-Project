@@ -20,6 +20,8 @@ class SystemController extends GetxController {
   final mqttTlsHost = ''.obs;
   final mqttTlsWsUrl = ''.obs;
   final httpTargetUrl = 'http://192.168.10.3'.obs;
+  final mqttUsername = ''.obs;
+  final mqttPassword = ''.obs;
 
   final isLoading = true.obs;
   final isTestingConnection = false.obs;
@@ -105,6 +107,8 @@ class SystemController extends GetxController {
     mqttTlsHost.value = prefs.getString('mqtt_tls_host') ?? '';
     mqttTlsWsUrl.value = prefs.getString('mqtt_tls_websocket_url') ?? '';
     httpTargetUrl.value = prefs.getString('http_target_url') ?? 'http://192.168.10.3';
+    mqttUsername.value = prefs.getString('mqtt_username') ?? '';
+    mqttPassword.value = prefs.getString('mqtt_password') ?? '';
 
     // Handle initial state depending on API key presence
     if (apiKey.value.trim().isEmpty) {
@@ -156,6 +160,8 @@ class SystemController extends GetxController {
     required String tlsHost,
     required String tlsWsUrl,
     required String httpUrl,
+    String? username,
+    String? password,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -168,6 +174,8 @@ class SystemController extends GetxController {
     await prefs.setString('mqtt_tls_host', tlsHost);
     await prefs.setString('mqtt_tls_websocket_url', tlsWsUrl);
     await prefs.setString('http_target_url', httpUrl);
+    await prefs.setString('mqtt_username', username ?? '');
+    await prefs.setString('mqtt_password', password ?? '');
 
     connectionProtocol.value = protocol;
     mqttPreset.value = preset;
@@ -178,6 +186,8 @@ class SystemController extends GetxController {
     mqttTlsHost.value = tlsHost;
     mqttTlsWsUrl.value = tlsWsUrl;
     httpTargetUrl.value = httpUrl;
+    mqttUsername.value = username ?? '';
+    mqttPassword.value = password ?? '';
 
     Get.snackbar(
       'Broker Settings Saved',

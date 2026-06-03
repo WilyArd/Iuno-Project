@@ -315,9 +315,39 @@ class DashboardController extends GetxController {
       return;
     }
 
-    final String host = prefs.getString('mqtt_host') ?? '192.168.10.3';
-    final int port = prefs.getInt('mqtt_port') ?? 1883;
     final bool secure = prefs.getBool('mqtt_use_tls') ?? false;
+    String host = prefs.getString('mqtt_host') ?? '192.168.10.3';
+    if (secure) {
+      final tlsHost = prefs.getString('mqtt_tls_host') ?? '';
+      if (tlsHost.isNotEmpty) {
+        host = tlsHost;
+      }
+    }
+
+    // Sanitize host string (remove schema prefixes and trailing ports/slashes)
+    host = host.trim();
+    if (host.startsWith('mqtt://')) host = host.substring(7);
+    if (host.startsWith('mqtts://')) host = host.substring(8);
+    if (host.startsWith('ssl://')) host = host.substring(6);
+    if (host.startsWith('tcp://')) host = host.substring(6);
+    if (host.startsWith('wss://')) host = host.substring(6);
+    if (host.startsWith('ws://')) host = host.substring(5);
+
+    if (host.contains('/')) {
+      host = host.split('/')[0];
+    }
+    if (host.contains(':')) {
+      host = host.split(':')[0];
+    }
+
+    final int port = prefs.getInt('mqtt_port') ?? 1883;
+    final String username = prefs.getString('mqtt_username') ?? '';
+    final String password = prefs.getString('mqtt_password') ?? '';
+
+    // DEBUG: Print connection parameters
+    print('MQTT DEBUG: host="$host" port=$port secure=$secure');
+    print('MQTT DEBUG: username="${username.isNotEmpty ? username : "(empty)"}" password="${password.isNotEmpty ? "(set)" : "(empty)"}"');
+    print('MQTT DEBUG: raw mqtt_host="${prefs.getString('mqtt_host')}" raw mqtt_tls_host="${prefs.getString('mqtt_tls_host')}"');
 
     mqttService.setup(
       host,
@@ -326,7 +356,10 @@ class DashboardController extends GetxController {
       secure: secure,
     );
 
-    bool brokerConnected = await mqttService.connect();
+    bool brokerConnected = await mqttService.connect(
+      username: username.isNotEmpty ? username : null,
+      password: password.isNotEmpty ? password : null,
+    );
 
     if (brokerConnected) {
       isBrokerConnected.value = true;
