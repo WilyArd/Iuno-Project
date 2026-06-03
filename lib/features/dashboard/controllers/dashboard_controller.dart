@@ -268,6 +268,8 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
       mqttService.subscribe(stateTopic, (topic, message) {
         newDevice.value.value = message.trim();
         _addHistoryData(newDevice, message.trim());
+        // Persist updated state from MQTT
+        _saveDevicesToPrefs();
         _resetEsp32Timeout();
       });
     }
@@ -437,6 +439,8 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
         mqttService.subscribe(newDevice.stateTopic, (topic, message) {
           newDevice.value.value = message.trim();
           _addHistoryData(newDevice, message.trim());
+          // Persist updated state (e.g. relay ON confirmation from ESP32)
+          _saveDevicesToPrefs();
           _resetEsp32Timeout();
         });
       }
@@ -468,6 +472,17 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
     });
   }
 
+  /// Called when the user physically toggles a switch on the dashboard.
+  /// Updates local state optimistically and persists it immediately so the
+  /// state survives app restarts (important when relay is ON and app is closed).
+  void toggleSwitch(DeviceWidgetModel device, bool newValue) {
+    final command = newValue ? 'ON' : 'OFF';
+    device.value.value = command;
+    // Persist the new state immediately
+    _saveDevicesToPrefs();
+    sendCommand(device, command);
+  }
+
   void sendCommand(DeviceWidgetModel device, String command) {
     if (isBrokerConnected.value && device.commandTopic.isNotEmpty) {
       try {
@@ -476,7 +491,7 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
         print('Error publishing MQTT command: $e');
       }
     } else {
-      print('MQTT Broker is disconnected. Command "${command}" to "${device.commandTopic}" was simulated locally.');
+      print('MQTT Broker is disconnected. Command "$command" to "${device.commandTopic}" was simulated locally.');
     }
   }
 

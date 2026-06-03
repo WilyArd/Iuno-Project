@@ -690,8 +690,9 @@ class DashboardView extends StatelessWidget {
                     activeThumbColor: Colors.white,
                     activeTrackColor: accent,
                     onChanged: (val) {
-                      device.value.value = val ? 'ON' : 'OFF';
-                      controller.sendCommand(device, val ? 'ON' : 'OFF');
+                      // Use controller.toggleSwitch so state is persisted
+                      // across app restarts (relay ON state survives close)
+                      controller.toggleSwitch(device, val);
                     },
                   ),
                 ],
