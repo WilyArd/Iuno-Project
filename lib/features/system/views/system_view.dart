@@ -6,57 +6,40 @@ import '../../dashboard/controllers/dashboard_controller.dart';
 
 class SystemView extends StatelessWidget {
   final SystemController controller = Get.find<SystemController>();
-  final RxString _expandedTile = 'AI'.obs; // Default to AI configuration open
+  final RxString _expandedTile = 'AI'.obs;
 
-  final providerController = TextEditingController();
   final baseUrlController = TextEditingController();
   final apiKeyController = TextEditingController();
   final modelController = TextEditingController();
 
-  // New connection controllers
+  // Broker connection controllers
   final mqttHostController = TextEditingController();
   final mqttPortController = TextEditingController();
-  final mqttWsPortController = TextEditingController();
-  final mqttTlsHostController = TextEditingController();
-  final mqttTlsWsUrlController = TextEditingController();
   final httpUrlController = TextEditingController();
   final mqttUsernameController = TextEditingController();
   final mqttPasswordController = TextEditingController();
 
+  void _syncControllers() {
+    baseUrlController.text = controller.baseUrl.value;
+    apiKeyController.text = controller.apiKey.value;
+    modelController.text = controller.modelName.value;
+    mqttHostController.text = controller.mqttHost.value.isNotEmpty
+        ? controller.mqttHost.value
+        : controller.mqttTlsHost.value;
+    mqttPortController.text = controller.mqttPort.value.toString();
+    httpUrlController.text = controller.httpTargetUrl.value;
+    mqttUsernameController.text = controller.mqttUsername.value;
+    mqttPasswordController.text = controller.mqttPassword.value;
+  }
+
   SystemView({super.key}) {
     ever(controller.isLoading, (isLoading) {
-      if (!isLoading) {
-        baseUrlController.text = controller.baseUrl.value;
-        apiKeyController.text = controller.apiKey.value;
-        modelController.text = controller.modelName.value;
-
-        mqttHostController.text = controller.mqttHost.value;
-        mqttPortController.text = controller.mqttPort.value.toString();
-        mqttWsPortController.text = controller.mqttWsPort.value.toString();
-        mqttTlsHostController.text = controller.mqttTlsHost.value;
-        mqttTlsWsUrlController.text = controller.mqttTlsWsUrl.value;
-        httpUrlController.text = controller.httpTargetUrl.value;
-        mqttUsernameController.text = controller.mqttUsername.value;
-        mqttPasswordController.text = controller.mqttPassword.value;
-      }
+      if (!isLoading) _syncControllers();
     });
     ever(controller.modelName, (model) {
       if (modelController.text != model) modelController.text = model;
     });
-    if (!controller.isLoading.value) {
-      baseUrlController.text = controller.baseUrl.value;
-      apiKeyController.text = controller.apiKey.value;
-      modelController.text = controller.modelName.value;
-
-      mqttHostController.text = controller.mqttHost.value;
-      mqttPortController.text = controller.mqttPort.value.toString();
-      mqttWsPortController.text = controller.mqttWsPort.value.toString();
-      mqttTlsHostController.text = controller.mqttTlsHost.value;
-      mqttTlsWsUrlController.text = controller.mqttTlsWsUrl.value;
-      httpUrlController.text = controller.httpTargetUrl.value;
-      mqttUsernameController.text = controller.mqttUsername.value;
-      mqttPasswordController.text = controller.mqttPassword.value;
-    }
+    if (!controller.isLoading.value) _syncControllers();
   }
 
   void _toggleTile(String tile) {
@@ -112,9 +95,15 @@ class SystemView extends StatelessWidget {
               // Dynamic subtitle for Broker status
               final brokerOk = dash.isBrokerConnected.value;
               final deviceLive = dash.isDeviceConnected.value;
-              final String brokerSubtitle = deviceLive
-                  ? '192.168.10.3 • Live'
-                  : (brokerOk ? '192.168.10.3 • Broker OK' : '192.168.10.3 • Offline');
+              final savedHost = controller.mqttTlsHost.value.isNotEmpty
+                  ? controller.mqttTlsHost.value
+                  : (controller.mqttHost.value.isNotEmpty ? controller.mqttHost.value : 'Not configured');
+              final String brokerStatus = dash.isConnecting.value
+                  ? 'Connecting…'
+                  : deviceLive
+                      ? 'Live'
+                      : (brokerOk ? 'Broker OK' : 'Offline');
+              final String brokerSubtitle = '$savedHost • $brokerStatus';
 
               // Dynamic subtitle for AI active configurations
               final String aiSubtitle =
@@ -321,8 +310,8 @@ class SystemView extends StatelessWidget {
             AnimatedCrossFade(
               firstChild: const SizedBox.shrink(),
               secondChild: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF9FAFC),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFC),
                   border: Border(
                     top: BorderSide(color: Color(0xFFEEEEEE), width: 1),
                   ),
@@ -410,270 +399,215 @@ class SystemView extends StatelessWidget {
 
   // ─── MQTT Broker Content ──────────────────────────────
   Widget _buildBrokerCardContent(DashboardController dash) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Protocol Selection Header
-        Text(
-          'Select Connection Protocol',
-          style: GoogleFonts.spaceGrotesk(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF444444),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Obx(() {
-          final selectedProtocol = controller.connectionProtocol.value;
-          return Row(
+    return Obx(() {
+      final protocol = controller.connectionProtocol.value;
+      final preset = controller.mqttPreset.value;
+      final useTls = controller.mqttUseTls.value;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Protocol Selector ──
+          _buildSectionLabel('Connection Protocol'),
+          const SizedBox(height: 8),
+          Row(
             children: [
               Expanded(
                 child: _buildChoiceCard(
-                  label: 'MQTT Protocol',
+                  label: 'MQTT',
+                  hint: 'TCP / TLS socket',
                   icon: Icons.hub_rounded,
-                  isSelected: selectedProtocol == 'MQTT',
-                  onTap: () {
-                    controller.connectionProtocol.value = 'MQTT';
-                  },
+                  isSelected: protocol == 'MQTT',
+                  onTap: () => controller.connectionProtocol.value = 'MQTT',
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _buildChoiceCard(
-                  label: 'HTTP Protocol',
+                  label: 'HTTP',
+                  hint: 'REST API',
                   icon: Icons.language_rounded,
-                  isSelected: selectedProtocol == 'HTTP',
-                  onTap: () {
-                    controller.connectionProtocol.value = 'HTTP';
-                  },
+                  isSelected: protocol == 'HTTP',
+                  onTap: () => controller.connectionProtocol.value = 'HTTP',
                 ),
               ),
             ],
-          );
-        }),
-        const SizedBox(height: 20),
+          ),
+          const SizedBox(height: 20),
 
-        Obx(() {
-          final selectedProtocol = controller.connectionProtocol.value;
-          if (selectedProtocol == 'HTTP') {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (protocol == 'HTTP') ...[
+            _buildTextField(
+              ctrl: httpUrlController,
+              label: 'ESP32 HTTP Target URL',
+              hint: 'e.g., http://192.168.10.100',
+            ),
+            const SizedBox(height: 20),
+            _buildSaveBrokerButton(),
+          ] else ...[
+            // ── Preset Selector ──
+            _buildSectionLabel('Broker Preset'),
+            const SizedBox(height: 8),
+            Row(
               children: [
-                _buildTextField(
-                  ctrl: httpUrlController,
-                  label: 'ESP32 HTTP Target URL',
-                  hint: 'e.g., http://192.168.10.100',
+                Expanded(
+                  child: _buildChoiceCard(
+                    label: 'Docker',
+                    hint: 'Port 1883 • No TLS',
+                    icon: Icons.developer_board_rounded,
+                    isSelected: preset == 'Docker',
+                    onTap: () {
+                      controller.mqttPreset.value = 'Docker';
+                      mqttHostController.text = '192.168.10.3';
+                      mqttPortController.text = '1883';
+                      controller.mqttUseTls.value = false;
+                    },
+                  ),
                 ),
-                const SizedBox(height: 20),
-                _buildSaveBrokerButton(),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildChoiceCard(
+                    label: 'HiveMQ',
+                    hint: 'Port 8883 • TLS',
+                    icon: Icons.cloud_queue_rounded,
+                    isSelected: preset == 'HiveMQ',
+                    onTap: () {
+                      controller.mqttPreset.value = 'HiveMQ';
+                      controller.mqttUseTls.value = true;
+                      mqttPortController.text = '8883';
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildChoiceCard(
+                    label: 'Custom',
+                    hint: 'Manual setup',
+                    icon: Icons.tune_rounded,
+                    isSelected: preset == 'Custom',
+                    onTap: () => controller.mqttPreset.value = 'Custom',
+                  ),
+                ),
               ],
-            );
-          }
+            ),
+            const SizedBox(height: 20),
 
-          // MQTT connection details
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Presets selector
-              Text(
-                'Broker Preset / Target',
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF444444),
+            // ── Single Broker Host Field ──
+            _buildTextField(
+              ctrl: mqttHostController,
+              label: preset == 'HiveMQ' ? 'HiveMQ Cluster URL' : 'Broker Host / IP',
+              hint: preset == 'HiveMQ'
+                  ? 'xxxxxxxx.s1.eu.hivemq.cloud'
+                  : '192.168.10.3',
+              prefixIcon: useTls ? Icons.lock_rounded : Icons.wifi_rounded,
+            ),
+            const SizedBox(height: 14),
+
+            // ── Port + TLS Toggle row ──
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: _buildTextField(
+                    ctrl: mqttPortController,
+                    label: 'Port',
+                    hint: useTls ? '8883' : '1883',
+                    keyboardType: TextInputType.number,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildChoiceCard(
-                      label: 'Local Docker',
-                      icon: Icons.developer_board_rounded,
-                      isSelected: controller.mqttPreset.value == 'Docker',
-                      onTap: () {
-                        controller.mqttPreset.value = 'Docker';
-                        mqttHostController.text = '192.168.10.3';
-                        mqttPortController.text = '1883';
-                        mqttWsPortController.text = '9001';
-                        controller.mqttUseTls.value = false;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildChoiceCard(
-                      label: 'HiveMQ Cloud',
-                      icon: Icons.cloud_queue_rounded,
-                      isSelected: controller.mqttPreset.value == 'HiveMQ',
-                      onTap: () {
-                        controller.mqttPreset.value = 'HiveMQ';
-                        controller.mqttUseTls.value = true;
-                        mqttHostController.text = '';
-                        mqttPortController.text = '8883';
-                        mqttWsPortController.text = '8884';
-                        mqttTlsHostController.text = '';
-                        mqttTlsWsUrlController.text = '';
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildChoiceCard(
-                      label: 'Custom Broker',
-                      icon: Icons.tune_rounded,
-                      isSelected: controller.mqttPreset.value == 'Custom',
-                      onTap: () {
-                        controller.mqttPreset.value = 'Custom';
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(width: 14),
+                Expanded(
+                  flex: 3,
+                  child: _buildTlsToggleTile(useTls),
+                ),
+              ],
+            ),
 
-              // Configuration fields based on preset & customization
-              _buildTextField(
-                ctrl: mqttHostController,
-                label: 'Broker URL / Host Address',
-                hint: 'e.g., 192.168.10.3 or broker.hivemq.com',
-              ),
+            // ── Auth fields (HiveMQ / Custom / TLS) ──
+            if (preset == 'HiveMQ' || preset == 'Custom' || useTls) ...[
               const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
                     child: _buildTextField(
-                      ctrl: mqttPortController,
-                      label: 'TCP Port',
-                      hint: '1883',
+                      ctrl: mqttUsernameController,
+                      label: 'Username',
+                      hint: 'your_username',
+                      prefixIcon: Icons.person_outline_rounded,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildTextField(
-                      ctrl: mqttWsPortController,
-                      label: 'WebSocket Port',
-                      hint: '9001',
+                      ctrl: mqttPasswordController,
+                      label: 'Password',
+                      hint: '••••••••',
+                      isObscure: true,
+                      prefixIcon: Icons.key_outlined,
                     ),
                   ),
                 ],
               ),
-              // Username & Password Fields
-              Obx(() {
-                final preset = controller.mqttPreset.value;
-                if (preset == 'HiveMQ' || preset == 'Custom' || controller.mqttUseTls.value) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              ctrl: mqttUsernameController,
-                              label: 'MQTT Username',
-                              hint: 'e.g., ardwily',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTextField(
-                              ctrl: mqttPasswordController,
-                              label: 'MQTT Password',
-                              hint: '••••••••',
-                              isObscure: true,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  );
-                }
-                return const SizedBox.shrink();
-              }),
-
-              // TLS Security Toggle
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Secure Connection (TLS)',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF444444),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Encrypt communication with SSL/TLS',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 11,
-                          color: const Color(0xFF888888),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Obx(() => Switch.adaptive(
-                        value: controller.mqttUseTls.value,
-                        activeThumbColor: Colors.black,
-                        onChanged: (val) {
-                          controller.mqttUseTls.value = val;
-                          if (val && mqttPortController.text == '1883') {
-                            mqttPortController.text = '8883'; // Auto TLS port
-                          } else if (!val && mqttPortController.text == '8883') {
-                            mqttPortController.text = '1883'; // Auto non-TLS port
-                          }
-                        },
-                      )),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // TLS Specific URL Fields (Visible if TLS is active or custom)
-              Obx(() {
-                if (controller.mqttUseTls.value || controller.mqttPreset.value == 'HiveMQ' || controller.mqttPreset.value == 'Custom') {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildTextField(
-                        ctrl: mqttTlsHostController,
-                        label: 'TLS MQTT URL / Secure Host',
-                        hint: 'e.g., broker.hivemq.com (Secure)',
-                      ),
-                      const SizedBox(height: 14),
-                      _buildTextField(
-                        ctrl: mqttTlsWsUrlController,
-                        label: 'TLS Secure WebSocket URL',
-                        hint: 'e.g., wss://broker.hivemq.com:8884/mqtt',
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                  );
-                }
-                return const SizedBox.shrink();
-              }),
-
-              const SizedBox(height: 10),
-              _buildSaveBrokerButton(),
-              const SizedBox(height: 20),
-
-              // Connection status and manual connect
-              const Divider(height: 1, color: Color(0xFFEEEEEE)),
-              const SizedBox(height: 16),
-              _buildStatusAndConnectSection(dash),
             ],
-          );
-        }),
-      ],
+
+            const SizedBox(height: 20),
+            _buildSaveBrokerButton(),
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: Color(0xFFEEEEEE)),
+            const SizedBox(height: 16),
+            _buildStatusAndConnectSection(dash),
+          ],
+        ],
+      );
+    });
+  }
+
+  Widget _buildTlsToggleTile(bool useTls) {
+    return GestureDetector(
+      onTap: () {
+        final next = !controller.mqttUseTls.value;
+        controller.mqttUseTls.value = next;
+        if (next && mqttPortController.text == '1883') {
+          mqttPortController.text = '8883';
+        } else if (!next && mqttPortController.text == '8883') {
+          mqttPortController.text = '1883';
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: useTls ? const Color(0xFF0A1F30) : const Color(0xFFF7F8FA),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: useTls ? const Color(0xFF0A1F30) : const Color(0xFFE8E8E8),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              useTls ? Icons.lock_rounded : Icons.lock_open_rounded,
+              size: 15,
+              color: useTls ? Colors.white : const Color(0xFF888888),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              useTls ? 'TLS ON' : 'TLS OFF',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: useTls ? Colors.white : const Color(0xFF888888),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildChoiceCard({
     required String label,
+    required String hint,
     required IconData icon,
     required bool isSelected,
     required VoidCallback onTap,
@@ -683,12 +617,12 @@ class SystemView extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.black : const Color(0xFFF7F8FA),
+          color: isSelected ? const Color(0xFF0A1F30) : const Color(0xFFF7F8FA),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Colors.black : const Color(0xFFE8E8E8),
+            color: isSelected ? const Color(0xFF0A1F30) : const Color(0xFFE8E8E8),
             width: 1.5,
           ),
         ),
@@ -699,13 +633,23 @@ class SystemView extends StatelessWidget {
               color: isSelected ? Colors.white : const Color(0xFF555555),
               size: 20,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 5),
             Text(
               label,
               style: GoogleFonts.spaceGrotesk(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? Colors.white : const Color(0xFF555555),
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? Colors.white : const Color(0xFF333333),
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              hint,
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 10,
+                color: isSelected ? Colors.white60 : const Color(0xFF999999),
               ),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
@@ -716,157 +660,161 @@ class SystemView extends StatelessWidget {
     );
   }
 
+  Widget _buildSectionLabel(String text) {
+    return Text(
+      text,
+      style: GoogleFonts.spaceGrotesk(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        color: const Color(0xFF888888),
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  void _doSaveBrokerSettings() {
+    final host = mqttHostController.text.trim();
+    controller.saveBrokerSettings(
+      protocol: controller.connectionProtocol.value,
+      preset: controller.mqttPreset.value,
+      host: host,
+      port: int.tryParse(mqttPortController.text.trim()) ?? 1883,
+      wsPort: 9001,
+      useTls: controller.mqttUseTls.value,
+      tlsHost: host, // single host field: saved to both keys
+      tlsWsUrl: '',
+      httpUrl: httpUrlController.text.trim(),
+      username: mqttUsernameController.text.trim(),
+      password: mqttPasswordController.text,
+    );
+  }
+
   Widget _buildSaveBrokerButton() {
     return _buildPrimaryButton(
-      label: 'Save Connection Settings',
-      onTap: () {
-        controller.saveBrokerSettings(
-          protocol: controller.connectionProtocol.value,
-          preset: controller.mqttPreset.value,
-          host: mqttHostController.text.trim(),
-          port: int.tryParse(mqttPortController.text.trim()) ?? 1883,
-          wsPort: int.tryParse(mqttWsPortController.text.trim()) ?? 9001,
-          useTls: controller.mqttUseTls.value,
-          tlsHost: mqttTlsHostController.text.trim(),
-          tlsWsUrl: mqttTlsWsUrlController.text.trim(),
-          httpUrl: httpUrlController.text.trim(),
-          username: mqttUsernameController.text.trim(),
-          password: mqttPasswordController.text,
-        );
-      },
+      label: 'Save Settings',
+      onTap: _doSaveBrokerSettings,
     );
   }
 
   Widget _buildStatusAndConnectSection(DashboardController dash) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Obx(() {
-          final isConnecting = dash.isConnecting.value;
-          final brokerOk = dash.isBrokerConnected.value;
-          final deviceLive = dash.isDeviceConnected.value;
+    return Obx(() {
+      final isConnecting = dash.isConnecting.value;
+      final brokerOk = dash.isBrokerConnected.value;
+      final deviceLive = dash.isDeviceConnected.value;
 
-          Color dotColor;
-          Color dotBg;
-          String chipLabel;
-          if (isConnecting) {
-            dotColor = const Color(0xFF9A7700);
-            dotBg = const Color(0xFFFFF9C4);
-            chipLabel = 'Connecting';
-          } else if (deviceLive) {
-            dotColor = const Color(0xFF065F46);
-            dotBg = const Color(0xFFD1FAE5);
-            chipLabel = 'Live';
-          } else if (brokerOk) {
-            dotColor = const Color(0xFF8A5700);
-            dotBg = const Color(0xFFFFF3CD);
-            chipLabel = 'Broker OK';
-          } else {
-            dotColor = const Color(0xFF991B1B);
-            dotBg = const Color(0xFFFFE4E4);
-            chipLabel = 'Offline';
-          }
+      // Status chip config
+      Color chipBg, chipFg;
+      String chipLabel;
+      IconData chipIcon;
+      if (isConnecting) {
+        chipBg = const Color(0xFFFEF3C7); chipFg = const Color(0xFF92400E);
+        chipLabel = 'Connecting…'; chipIcon = Icons.sync_rounded;
+      } else if (deviceLive) {
+        chipBg = const Color(0xFFD1FAE5); chipFg = const Color(0xFF065F46);
+        chipLabel = 'Live'; chipIcon = Icons.sensors_rounded;
+      } else if (brokerOk) {
+        chipBg = const Color(0xFFFFF3CD); chipFg = const Color(0xFF8A5700);
+        chipLabel = 'Broker OK'; chipIcon = Icons.cloud_done_rounded;
+      } else {
+        chipBg = const Color(0xFFFFE4E4); chipFg = const Color(0xFF991B1B);
+        chipLabel = 'Offline'; chipIcon = Icons.cloud_off_rounded;
+      }
 
-          return Row(
-            children: [
-              Text(
-                'Status:',
-                style: GoogleFonts.spaceGrotesk(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: const Color(0xFF555555),
+      // Button config
+      final bool isDisconnected = !brokerOk && !isConnecting;
+      final btnLabel = isConnecting ? 'Connecting…' : brokerOk ? 'Disconnect' : 'Connect Now';
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status chip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: chipBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(chipIcon, color: chipFg, size: 15),
+                const SizedBox(width: 6),
+                Text(
+                  chipLabel,
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: chipFg,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: dotBg,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: dotColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      chipLabel,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: dotColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }),
-        const SizedBox(height: 12),
-        Obx(() {
-          if (dash.isBrokerConnected.value && !dash.isDeviceConnected.value) {
-            return Row(
+              ],
+            ),
+          ),
+
+          if (brokerOk && !deviceLive) ...[
+            const SizedBox(height: 10),
+            Row(
               children: [
                 const SizedBox(
-                  width: 14,
-                  height: 14,
+                  width: 13, height: 13,
                   child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF888888)),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Scanning for ESP32 nodes…',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 12,
-                    color: const Color(0xFF888888),
-                  ),
+                  style: GoogleFonts.spaceGrotesk(fontSize: 12, color: const Color(0xFF888888)),
                 ),
               ],
-            );
-          }
-          return const SizedBox.shrink();
-        }),
-        const SizedBox(height: 12),
-        Obx(() => _buildOutlineButton(
-              label: dash.isConnecting.value
-                  ? 'Connecting…'
-                  : dash.isBrokerConnected.value
-                      ? 'Disconnect'
-                      : 'Connect Now',
-              onTap: () async {
-                if (dash.isConnecting.value) return;
+            ),
+          ],
 
-                if (dash.isBrokerConnected.value) {
-                  await dash.toggleConnection();
-                } else {
-                  // Auto-save settings first so the controller reads the latest input values
-                  await controller.saveBrokerSettings(
-                    protocol: controller.connectionProtocol.value,
-                    preset: controller.mqttPreset.value,
-                    host: mqttHostController.text.trim(),
-                    port: int.tryParse(mqttPortController.text.trim()) ?? 1883,
-                    wsPort: int.tryParse(mqttWsPortController.text.trim()) ?? 9001,
-                    useTls: controller.mqttUseTls.value,
-                    tlsHost: mqttTlsHostController.text.trim(),
-                    tlsWsUrl: mqttTlsWsUrlController.text.trim(),
-                    httpUrl: httpUrlController.text.trim(),
-                    username: mqttUsernameController.text.trim(),
-                    password: mqttPasswordController.text,
-                  );
-                  await dash.toggleConnection();
-                }
-              },
-              isLoading: dash.isConnecting.value,
-            )),
-      ],
-    );
+          const SizedBox(height: 14),
+
+          // Connect / Disconnect button
+          GestureDetector(
+            onTap: isConnecting ? null : () async {
+              if (brokerOk) {
+                await dash.toggleConnection();
+              } else {
+                _doSaveBrokerSettings();
+                await dash.toggleConnection();
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              decoration: BoxDecoration(
+                gradient: isDisconnected
+                    ? const LinearGradient(
+                        colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      )
+                    : null,
+                color: isDisconnected ? null : (brokerOk ? const Color(0xFFFFECEC) : Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: isConnecting
+                    ? const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      )
+                    : Text(
+                        btnLabel,
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: brokerOk ? const Color(0xFFEF4444) : Colors.white,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   // ─── AI API Provider Content ──────────────────────────
@@ -1254,6 +1202,8 @@ class SystemView extends StatelessWidget {
     required String label,
     required String hint,
     bool isObscure = false,
+    IconData? prefixIcon,
+    TextInputType? keyboardType,
     void Function(String)? onChanged,
   }) {
     return Column(
@@ -1272,6 +1222,7 @@ class SystemView extends StatelessWidget {
           controller: ctrl,
           obscureText: isObscure,
           onChanged: onChanged,
+          keyboardType: keyboardType,
           style: GoogleFonts.spaceGrotesk(fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
@@ -1279,6 +1230,9 @@ class SystemView extends StatelessWidget {
               fontSize: 13,
               color: const Color(0xFFBBBBBB),
             ),
+            prefixIcon: prefixIcon != null
+                ? Icon(prefixIcon, size: 18, color: const Color(0xFF999999))
+                : null,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             filled: true,
@@ -1300,6 +1254,8 @@ class SystemView extends StatelessWidget {
       ],
     );
   }
+
+
 
   Widget _buildLockedModelField({required String label, required String hint}) {
     return Column(

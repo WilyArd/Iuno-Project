@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/mqtt_service.dart';
 import '../models/device_widget_model.dart';
 
-class DashboardController extends GetxController {
+class DashboardController extends GetxController with WidgetsBindingObserver {
   final mqttService = MqttService();
 
   // Variabel reactive (observable) untuk UI
@@ -24,12 +25,38 @@ class DashboardController extends GetxController {
   var isDemoMode = true.obs;
   Timer? _simulationTimer;
 
+  /// Track if connection was manually initiated so we can auto-reconnect on resume
+  bool _wasConnectedBeforePause = false;
+
   @override
   void onInit() {
     super.onInit();
+    WidgetsBinding.instance.addObserver(this);
     _loadDevicesFromPrefs();
     _startSimulation();
     _initMqtt();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+      // Screen off / app backgrounded: save connection state & disconnect cleanly
+      _wasConnectedBeforePause = isBrokerConnected.value;
+      if (isBrokerConnected.value) {
+        mqttService.disconnect();
+        _esp32TimeoutTimer?.cancel();
+        isBrokerConnected.value = false;
+        isDeviceConnected.value = false;
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      // Screen on / app foregrounded: reconnect if we were connected before
+      if (_wasConnectedBeforePause && !isBrokerConnected.value && !isConnecting.value) {
+        _wasConnectedBeforePause = false;
+        isConnecting.value = true;
+        _initMqtt().then((_) => isConnecting.value = false);
+      }
+    }
   }
 
   Future<void> _saveDevicesToPrefs() async {
@@ -452,6 +479,7 @@ class DashboardController extends GetxController {
 
   @override
   void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
     _simulationTimer?.cancel();
     _esp32TimeoutTimer?.cancel();
     mqttService.disconnect();
