@@ -396,6 +396,23 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
       // Start the foreground service so MQTT stays alive in background
       _startForegroundService();
 
+      // ─── Re-subscribe persisted devices ─────────────────────────────
+      // When the app is restarted, devices are loaded from SharedPreferences.
+      // The MQTT subscriptions are lost on restart, so we re-establish them
+      // here before sending 'rediscover', so state updates are not missed.
+      if (!isDemoMode.value) {
+        for (final device in devices) {
+          if (device.stateTopic.isNotEmpty) {
+            mqttService.subscribe(device.stateTopic, (topic, message) {
+              device.value.value = message.trim();
+              _addHistoryData(device, message.trim());
+              _saveDevicesToPrefs();
+              _resetEsp32Timeout();
+            });
+          }
+        }
+      }
+
       // ✅ Subscribe ke pattern yang cocok dengan ESP32:
       mqttService.subscribe('iuno/+/discovery/#', (topic, message) {
         try {
@@ -443,6 +460,21 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
           _saveDevicesToPrefs();
           _resetEsp32Timeout();
         });
+      }
+    } else {
+      // Device sudah ada (mungkin load dari prefs atau re-discovery).
+      // Pastikan subscription state topic-nya aktif — mungkin sudah di-setup
+      // saat connect, tapi re-subscribe di sini aman karena MqttService
+      // menggunakan Map (overwrite, tidak duplikat).
+      final existingDevice = devices[index];
+      if (existingDevice.stateTopic.isNotEmpty) {
+        mqttService.subscribe(existingDevice.stateTopic, (topic, message) {
+          existingDevice.value.value = message.trim();
+          _addHistoryData(existingDevice, message.trim());
+          _saveDevicesToPrefs();
+          _resetEsp32Timeout();
+        });
+        print('MQTT: Re-subscribed state topic for existing device: ${existingDevice.name}');
       }
     }
   }
