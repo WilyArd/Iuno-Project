@@ -4,17 +4,30 @@ Iuno adalah aplikasi *dashboard* IoT cerdas berbasis Flutter yang dirancang untu
 
 ## Fitur Utama
 
-✨ **Native Edge AI (Fuzzy Logic)**
+🧠 **Native Edge AI (Fuzzy Logic)**
 Aplikasi ini tidak sekadar menampilkan data, tapi juga bisa "berpikir" sendiri! Tanpa bergantung pada server atau *backend* Python eksternal, Iuno mengalkulasikan target suhu dan kelembaban secara langsung di dalam perangkat (HP) secara otomatis.
 
-📈 **Real-Time Analytics**
-Grafik data suhu dan kelembaban langsung digambar secara *real-time* tanpa *lag* menggunakan `fl_chart`. Tampilan analitik tetap terlihat rapi meskipun ada banyak lonjakan titik data berkat optimalisasi render.
+📈 **Real-Time Analytics & Live Trends**
+Grafik data telemetri digambar secara *real-time* tanpa *lag* menggunakan `fl_chart`. Visualisasi grafik dibuat sangat bersih dengan kurva landai, sumbu dinamis yang presisi untuk tiap kategori sensor, serta indikator status "LIVE TRENDS" yang interaktif.
 
-🔌 **Konektivitas MQTT Tanpa Hambatan**
-Terhubung langsung ke mikrokontroler (misal: ESP32) menggunakan protokol MQTT via `broker.emqx.io`. Sangat ringan dan responsif!
+🔌 **Konektivitas MQTT & Background Keep-Alive**
+- **Koneksi Aman TLS/SSL**: Mendukung broker lokal maupun cloud terenkripsi (seperti HiveMQ Cloud) dengan mekanisme otentikasi serta pembersihan domain otomatis.
+- **Background Service**: Didukung `flutter_foreground_task`, MQTT client tetap hidup saat layar HP tidur atau saat aplikasi berjalan di latar belakang guna mencegah siklus putus-sambung (*reconnect*).
+- **Lifecycle-Aware**: Layanan latar belakang otomatis mati ketika aplikasi disapu (*swiped*) dari daftar aplikasi terbaru demi kehematan daya baterai.
 
-🎨 **Neubrutalism UI/UX**
-Antarmuka berani dengan *shadow* pekat, garis luar (border) tebal, serta font **Space Grotesk** yang memberikan kesan industrial sekaligus *playful*. Sistem navigasinya menggunakan `IndexedStack` sehingga transisi antar tab berjalan mulus tanpa efek berkedip (*flicker-free*).
+🎨 **UI/UX Modern (Neubrutalism & Slate-Teal Palette)**
+- Desain unik Neubrutalism yang diperhalus dengan aksen warna Slate, Navy, dan Teal untuk memberikan kesan premium.
+- Animasi mikro interaktif seperti efek membal (*tactile spring*) saat menekan tombol manual serta transisi rotasi 180° pada kartu pengaturan.
+- Halaman Asisten AI yang didesain menyerupai chat messenger modern dengan status model aktif dan gelembung chat adaptif.
+
+🛠️ **Custom Device Creator & Dynamic Simulations**
+- Buat widget Sensor (disertai satuan ukuran), Sakelar (Switch), atau Tombol (Button) baru secara instan langsung melalui menu tambah (+).
+- Ubah nama (*rename*) atau hapus widget secara dinamis melalui dialog interaktif dengan menahan lama (*long-press*) kartu widget bersangkutan.
+- Siklus pengujian tanpa alat fisik dimungkinkan berkat generator simulator internal yang memancarkan pola data unik secara otomatis untuk setiap nama sensor.
+
+📱 **Device Info Dinamis & External Link Access**
+- Menampilkan spesifikasi *hardware* & OS yang akurat berdasarkan tipe perangkat HP Anda (OS Version, Device Model, CPU Cores) via `device_info_plus`.
+- Mengakses repositori GitHub eksternal pada bagian *About & Version* yang langsung membuka browser eksternal bawaan dengan `url_launcher`.
 
 ## Protokol MQTT Auto-Discovery & Integrasi ESP32
 
@@ -293,10 +306,14 @@ void reconnect() {
 ## Teknologi yang Digunakan
 
 - **Flutter / Dart** (Minimum Android API 21)
-- **GetX** (State Management & Reactive UI)
-- **mqtt_client** (Konektivitas MQTT)
-- **fl_chart** (Visualisasi Grafik Data)
-- **Google Fonts** (Tipografi Space Grotesk)
+- **GetX** (State Management, Routing, & Reactive UI)
+- **mqtt_client** (Konektivitas MQTT standar IoT)
+- **flutter_foreground_task** (Background service untuk menjaga koneksi MQTT tetap aktif)
+- **device_info_plus** (Identifikasi spesifikasi detail hardware/OS secara dinamis)
+- **url_launcher** (Membuka tautan eksternal ke browser bawaan perangkat)
+- **shared_preferences** (Penyimpanan konfigurasi broker & widget kustom secara lokal)
+- **fl_chart** (Visualisasi Grafik Data Telemetri secara *real-time*)
+- **Google Fonts** (Tipografi Space Grotesk & Outfit)
 
 ## Cara Menjalankan Aplikasi
 
