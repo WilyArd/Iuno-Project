@@ -553,40 +553,72 @@ class DashboardView extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            // Value
+            // Value — show last known data or a clear 'waiting' placeholder
             Obx(() {
               final raw = device.value.value;
               final noData = raw == '--';
+              if (noData) {
+                // No data yet: show an informative waiting state instead of
+                // near-invisible '--' on white background.
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.signal_cellular_nodata_rounded,
+                            size: 18, color: accent.withValues(alpha: 0.35)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Waiting…',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFCBD5E1),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'No signal yet',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 10,
+                        color: const Color(0xFFE2E8F0),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                );
+              }
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    noData ? '--' : raw,
+                    raw,
                     style: GoogleFonts.spaceGrotesk(
                       fontSize: 34,
                       fontWeight: FontWeight.w900,
-                      color: noData ? const Color(0xFFCBD5E1) : const Color(0xFF0F172A),
+                      color: const Color(0xFF0F172A),
                       letterSpacing: -1.5,
                       height: 1,
                     ),
                   ),
-                  if (!noData)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4, left: 2),
-                      child: Text(
-                        device.unit,
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: accent,
-                        ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4, left: 2),
+                    child: Text(
+                      device.unit,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: accent,
                       ),
                     ),
+                  ),
                 ],
               );
             }),
             const SizedBox(height: 10),
-            // Custom inline meter
+            // Custom inline meter (hidden when no data)
             _buildInlineMeter(device, accent),
             const SizedBox(height: 10),
             // Sparkline
@@ -712,7 +744,8 @@ class DashboardView extends StatelessWidget {
                 style: GoogleFonts.spaceGrotesk(
                   fontSize: 34,
                   fontWeight: FontWeight.w900,
-                  color: isOn ? const Color(0xFF0F172A) : const Color(0xFFCBD5E1),
+                  // OFF uses Slate-400 (readable) instead of near-invisible Slate-200
+                  color: isOn ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
                   letterSpacing: -1,
                   height: 1,
                 ),
