@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/services/mqtt_service.dart';
 import '../../../core/services/mqtt_foreground_service.dart';
@@ -32,10 +33,17 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
   void onInit() {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
-    _loadDevicesFromPrefs();
-    _startSimulation();
     _initForegroundService();
-    _initMqtt();
+    // ⚠️ Run sequentially: prefs must be fully loaded BEFORE MQTT connects,
+    // otherwise the re-subscription loop runs against an empty device list.
+    _initAll();
+  }
+
+  /// Sequential initialization: load persisted state → start sim → connect MQTT.
+  Future<void> _initAll() async {
+    await _loadDevicesFromPrefs();
+    _startSimulation();
+    await _initMqtt();
   }
 
   @override
@@ -53,9 +61,8 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
 
   void _checkAndReconnectIfNeeded() {
     if (!isBrokerConnected.value && !isConnecting.value) {
-      // Service may have had a connection error — try reconnecting
-      isConnecting.value = true;
-      _initMqtt().then((_) => isConnecting.value = false);
+      // isConnecting is now managed inside _initMqtt itself
+      _initMqtt();
     }
   }
 
@@ -328,22 +335,24 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
       _loadDemoDevices();
       _startSimulation();
     } else {
-      // Manual connect
-      if (isConnecting.value) return;
-      isConnecting.value = true;
+      // Manual connect — _initMqtt manages isConnecting internally
       await _initMqtt();
-      isConnecting.value = false;
     }
   }
 
   Future<void> _initMqtt() async {
-    final prefs = await SharedPreferences.getInstance();
-    final protocol = prefs.getString('connection_protocol') ?? 'MQTT';
-    if (protocol == 'HTTP') {
-      print('DashboardController: HTTP protocol selected. Skipping MQTT setup.');
-      isBrokerConnected.value = false;
-      return;
-    }
+    // Guard against concurrent calls (e.g. onInit + didChangeAppLifecycleState)
+    if (isConnecting.value) return;
+    isConnecting.value = true;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final protocol = prefs.getString('connection_protocol') ?? 'MQTT';
+      if (protocol == 'HTTP') {
+        print('DashboardController: HTTP protocol selected. Skipping MQTT setup.');
+        isBrokerConnected.value = false;
+        return;
+      }
 
     final bool secure = prefs.getBool('mqtt_use_tls') ?? false;
     String host = prefs.getString('mqtt_host') ?? '192.168.10.3';
@@ -391,44 +400,47 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
       password: password.isNotEmpty ? password : null,
     );
 
-    if (brokerConnected) {
-      isBrokerConnected.value = true;
-      // Start the foreground service so MQTT stays alive in background
-      _startForegroundService();
+      if (brokerConnected) {
+        isBrokerConnected.value = true;
+        // Start the foreground service so MQTT stays alive in background
+        _startForegroundService();
 
-      // ─── Re-subscribe persisted devices ─────────────────────────────
-      // When the app is restarted, devices are loaded from SharedPreferences.
-      // The MQTT subscriptions are lost on restart, so we re-establish them
-      // here before sending 'rediscover', so state updates are not missed.
-      if (!isDemoMode.value) {
-        for (final device in devices) {
-          if (device.stateTopic.isNotEmpty) {
-            mqttService.subscribe(device.stateTopic, (topic, message) {
-              device.value.value = message.trim();
-              _addHistoryData(device, message.trim());
-              _saveDevicesToPrefs();
-              _resetEsp32Timeout();
-            });
+        // ─── Re-subscribe persisted devices ─────────────────────────────
+        // When the app is restarted, devices are loaded from SharedPreferences.
+        // The MQTT subscriptions are lost on restart, so we re-establish them
+        // here before sending 'rediscover', so state updates are not missed.
+        if (!isDemoMode.value) {
+          for (final device in devices) {
+            if (device.stateTopic.isNotEmpty) {
+              mqttService.subscribe(device.stateTopic, (topic, message) {
+                device.value.value = message.trim();
+                _addHistoryData(device, message.trim());
+                _saveDevicesToPrefs();
+                _resetEsp32Timeout();
+              });
+            }
           }
         }
+
+        // ✅ Subscribe ke pattern yang cocok dengan ESP32:
+        mqttService.subscribe('iuno/+/discovery/#', (topic, message) {
+          try {
+            final data = jsonDecode(message);
+            _handleDiscovery(data);
+            _resetEsp32Timeout();
+          } catch (e) {
+            print('Error parsing discovery: $e');
+          }
+        });
+
+        // ✅ Setelah connect, minta ESP32 kirim ulang discovery segera
+        Future.delayed(const Duration(seconds: 2), () {
+          mqttService.publish('iuno/device/cmd', 'rediscover');
+          print('MQTT: Sent rediscover command to ESP32');
+        });
       }
-
-      // ✅ Subscribe ke pattern yang cocok dengan ESP32:
-      mqttService.subscribe('iuno/+/discovery/#', (topic, message) {
-        try {
-          final data = jsonDecode(message);
-          _handleDiscovery(data);
-          _resetEsp32Timeout();
-        } catch (e) {
-          print('Error parsing discovery: $e');
-        }
-      });
-
-      // ✅ Setelah connect, minta ESP32 kirim ulang discovery segera
-      Future.delayed(const Duration(seconds: 2), () {
-        mqttService.publish('iuno/device/cmd', 'rediscover');
-        print('MQTT: Sent rediscover command to ESP32');
-      });
+    } finally {
+      isConnecting.value = false;
     }
   }
 
@@ -505,12 +517,30 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
   }
 
   /// Called when the user physically toggles a switch on the dashboard.
-  /// Updates local state optimistically and persists it immediately so the
-  /// state survives app restarts (important when relay is ON and app is closed).
+  /// Only sends command (and updates UI) when the broker is connected.
+  /// If disconnected, shows a snackbar so the user knows the toggle was ignored.
   void toggleSwitch(DeviceWidgetModel device, bool newValue) {
+    if (!isBrokerConnected.value) {
+      Get.snackbar(
+        '',
+        'Tidak terhubung ke broker. Sambungkan terlebih dahulu.',
+        titleText: const SizedBox.shrink(),
+        messageText: Text(
+          'Tidak terhubung ke broker. Sambungkan dulu untuk mengontrol ${device.name}.',
+          style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600, color: Colors.white),
+        ),
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: const Color(0xFF0F172A),
+        colorText: Colors.white,
+        borderRadius: 14,
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 2),
+        icon: const Icon(Icons.wifi_off_rounded, color: Colors.white),
+      );
+      return; // Do NOT update state — broker is offline, relay physically unchanged
+    }
     final command = newValue ? 'ON' : 'OFF';
-    device.value.value = command;
-    // Persist the new state immediately
+    device.value.value = command; // Optimistic update (broker is confirmed connected)
     _saveDevicesToPrefs();
     sendCommand(device, command);
   }
