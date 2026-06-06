@@ -1,0 +1,61 @@
+name: Flutter Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    name: Build & Release Android ARM64 APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Build ARM64 APK
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Rename APK for clarity
+        run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/iuno-arm64-release.apk
+
+      - name: Create GitHub Release and Upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/iuno-arm64-release.apk
+          prerelease: true
+          draft: false
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Iuno IoT Dashboard - Beta Release
+            
+            Versi Beta rilis untuk platform **Android ARM64-v8a**.
+            
+            ### Fitur Utama:
+            - Monitoring MQTT Real-time.
+            - Kustomisasi widget per perangkat.
+            - Fitur keamanan terenkripsi menggunakan Flutter Secure Storage.
+            
+            ### Cara Install:
+            1. Unduh file `iuno-arm64-release.apk` di bawah.
+            2. Instal pada perangkat Android berarsitektur ARM64 (sebagian besar HP modern).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
