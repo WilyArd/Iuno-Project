@@ -1,5 +1,6 @@
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 
 class MqttService {
@@ -17,12 +18,21 @@ class MqttService {
     client!.connectTimeoutPeriod = 10000; // 10s — TLS handshake needs more time
     client!.onDisconnected = _onDisconnected;
     client!.secure = secure;
-    client!.logging(on: true); // Enable logging so we can see errors
+    // [L-1 FIX] Hanya aktifkan logging saat debug mode
+    client!.logging(on: kDebugMode);
 
     if (secure) {
       // Both lines required per HiveMQ official Dart getting-started guide
       client!.securityContext = SecurityContext.defaultContext;
-      client!.onBadCertificate = (dynamic certificate) => true;
+      // [C-1 FIX] Bypass sertifikat HANYA di debug mode (development).
+      // Di release build (flutter build apk/appbundle), validasi TLS penuh berlaku.
+      if (kDebugMode) {
+        client!.onBadCertificate = (dynamic certificate) {
+          debugPrint('MQTT [DEBUG ONLY]: Accepting bad certificate for dev. DO NOT deploy this!');
+          return true;
+        };
+      }
+      // Produksi: onBadCertificate tidak diset → mqtt_client akan reject sertifikat invalid ✅
     }
 
     // MQTT 3.1.1 required by HiveMQ Cloud (ProtocolName=MQTT, ProtocolVersion=4)
@@ -37,7 +47,7 @@ class MqttService {
 
   Future<bool> connect({String? username, String? password}) async {
     try {
-      print('MQTT: Attempting connect → host=${client!.server} port=${client!.port} secure=${client!.secure}');
+      debugPrint('MQTT: Attempting connect → host=${client!.server} port=${client!.port} secure=${client!.secure}');
       await client!.connect(username, password).timeout(
         const Duration(seconds: 15), // Longer timeout for TLS cloud connections
         onTimeout: () {
@@ -46,30 +56,30 @@ class MqttService {
         },
       );
     } on NoConnectionException catch (e) {
-      print('MQTT: NoConnectionException - $e');
+      debugPrint('MQTT: NoConnectionException - $e');
       client!.disconnect();
       return false;
     } on SocketException catch (e) {
-      print('MQTT: SocketException - $e');
+      debugPrint('MQTT: SocketException - $e');
       client!.disconnect();
       return false;
     } on TimeoutException catch (e) {
-      print('MQTT: TimeoutException - $e');
+      debugPrint('MQTT: TimeoutException - $e');
       return false;
     } catch (e) {
-      print('MQTT: Unknown error - ${e.runtimeType}: $e');
+      debugPrint('MQTT: Unknown error - ${e.runtimeType}: $e');
       client?.disconnect();
       return false;
     }
 
     if (client!.connectionStatus!.state == MqttConnectionState.connected) {
-      print('MQTT: Connected successfully!');
+      debugPrint('MQTT: Connected successfully!');
 
       // ✅ Daftarkan SATU listener global untuk semua incoming messages
       client!.updates!.listen(_onMessage);
       return true;
     } else {
-      print('MQTT: Failed - state=${client!.connectionStatus!.state} returnCode=${client!.connectionStatus!.returnCode}');
+      debugPrint('MQTT: Failed - state=${client!.connectionStatus!.state} returnCode=${client!.connectionStatus!.returnCode}');
       client!.disconnect();
       return false;
     }
@@ -95,7 +105,7 @@ class MqttService {
   }
 
   void _onDisconnected() {
-    print('MQTT: Disconnected');
+    debugPrint('MQTT: Disconnected');
   }
 
   /// Subscribe ke sebuah topic pattern.
@@ -104,7 +114,7 @@ class MqttService {
     String topicPattern,
     void Function(String topic, String message) onMessage,
   ) {
-    print('MQTT: Subscribing to $topicPattern');
+    debugPrint('MQTT: Subscribing to $topicPattern');
     client!.subscribe(topicPattern, MqttQos.atMostOnce);
     _subscriptions[topicPattern] = onMessage; // ✅ Tidak memanggil .listen() lagi
   }

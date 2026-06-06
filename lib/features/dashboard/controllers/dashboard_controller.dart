@@ -66,6 +66,15 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  /// [M-2] Validasi format MQTT topic: tidak boleh mengandung wildcard saat publish
+  bool _isValidMqttTopic(String topic, {bool allowWildcard = false}) {
+    if (topic.isEmpty) return true;
+    if (!allowWildcard && (topic.contains('#') || topic.contains('+'))) return false;
+    if (topic.startsWith('/') || topic.endsWith('/')) return false;
+    if (topic.length > 256) return false;
+    return true;
+  }
+
   Future<void> _saveDevicesToPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -74,7 +83,7 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
       await prefs.setStringList('custom_devices_list', list);
       await prefs.setBool('devices_is_demo_mode', isDemoMode.value);
     } catch (e) {
-      print('Error saving devices: $e');
+      debugPrint('Error saving devices: $e');
     }
   }
 
@@ -108,7 +117,7 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      print('Error loading devices: $e');
+      debugPrint('Error loading devices: $e');
       if (isDemoMode.value) {
         _loadDemoDevices();
       }
@@ -301,8 +310,9 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
     devices.add(newDevice);
     _saveDevicesToPrefs();
 
+    // [M-2] Validasi topic sebelum subscribe
     // If MQTT broker is active and connected, subscribe to state topic immediately!
-    if (isBrokerConnected.value && stateTopic.isNotEmpty) {
+    if (isBrokerConnected.value && stateTopic.isNotEmpty && _isValidMqttTopic(stateTopic, allowWildcard: false)) {
       mqttService.subscribe(stateTopic, (topic, message) {
         newDevice.value.value = message.trim();
         _addHistoryData(newDevice, message.trim());
@@ -427,7 +437,7 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
       final prefs = await SharedPreferences.getInstance();
       final protocol = prefs.getString('connection_protocol') ?? 'MQTT';
       if (protocol == 'HTTP') {
-        print('DashboardController: HTTP protocol selected. Skipping MQTT setup.');
+        debugPrint('DashboardController: HTTP protocol selected. Skipping MQTT setup.');
         isBrokerConnected.value = false;
         return;
       }
@@ -461,10 +471,9 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
     final String username = prefs.getString('mqtt_username') ?? '';
     final String password = prefs.getString('mqtt_password') ?? '';
 
-    // DEBUG: Print connection parameters
-    print('MQTT DEBUG: host="$host" port=$port secure=$secure');
-    print('MQTT DEBUG: username="${username.isNotEmpty ? username : "(empty)"}" password="${password.isNotEmpty ? "(set)" : "(empty)"}"');
-    print('MQTT DEBUG: raw mqtt_host="${prefs.getString('mqtt_host')}" raw mqtt_tls_host="${prefs.getString('mqtt_tls_host')}"');
+    // [M-1 FIX] Debug info hanya tampil saat mode debug
+    debugPrint('MQTT DEBUG: host="$host" port=$port secure=$secure');
+    debugPrint('MQTT DEBUG: username="${username.isNotEmpty ? username : "(empty)"}" password="${password.isNotEmpty ? "(set)" : "(empty)"}"');
 
     mqttService.setup(
       host,
@@ -513,14 +522,14 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
             _handleDiscovery(topic, data);
             _resetEsp32Timeout();
           } catch (e) {
-            print('Error parsing discovery: $e');
+            debugPrint('Error parsing discovery: $e');
           }
         });
 
         // ✅ Setelah connect, minta ESP32 kirim ulang discovery segera
         Future.delayed(const Duration(seconds: 2), () {
           mqttService.publish('iuno/device/cmd', 'rediscover');
-          print('MQTT: Sent rediscover command to ESP32');
+          debugPrint('MQTT: Sent rediscover command to ESP32');
         });
       }
     } finally {
@@ -529,8 +538,25 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
   }
 
   void _handleDiscovery(String topic, Map<String, dynamic> data) {
-    final id = data['id'] ?? '';
-    if (id.isEmpty) return;
+    // [M-3 FIX] Validasi dan sanitasi payload dari broker sebelum digunakan
+    final id = (data['id'] as String? ?? '').trim();
+    if (id.isEmpty || id.length > 64) return; // Tolak ID kosong atau terlalu panjang
+
+    final name = (data['name'] as String? ?? 'Device').trim();
+    if (name.length > 100) return; // Tolak nama yang terlalu panjang
+
+    final stateTopic = (data['stateTopic'] as String? ?? '').trim();
+    final cmdTopic = (data['commandTopic'] as String? ?? '').trim();
+
+    // Validasi topic hanya berisi karakter yang valid (bukan wildcard berbahaya pada publish)
+    if (stateTopic.isNotEmpty && !_isValidMqttTopic(stateTopic)) return;
+    if (cmdTopic.isNotEmpty && !_isValidMqttTopic(cmdTopic)) return;
+
+    // Batasi jumlah device maksimum untuk mencegah resource exhaustion
+    if (devices.length >= 50) {
+      debugPrint('MQTT: Device limit reached (50). Ignoring new discovery from $id');
+      return;
+    }
 
     // If we receive a real discovery message, clear all demo/simulated devices first!
     if (isDemoMode.value) {
@@ -540,7 +566,7 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
     }
 
     // Default group to 'Default Device' if not specified in payload
-    final defaultGroup = 'Default Device';
+    const defaultGroup = 'Default Device';
     
     // Inject device group from MQTT payload or topic
     final payloadWithGroup = Map<String, dynamic>.from(data);
@@ -555,7 +581,7 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
       // Device baru → tambahkan dan subscribe ke state topic-nya
       final newDevice = DeviceWidgetModel.fromJson(payloadWithGroup);
       devices.add(newDevice);
-      print('MQTT: New device discovered: ${newDevice.name} (${newDevice.id}) under group: ${newDevice.deviceGroup}');
+      debugPrint('MQTT: New device discovered: ${newDevice.name} (${newDevice.id}) under group: ${newDevice.deviceGroup}');
 
       if (newDevice.stateTopic.isNotEmpty) {
         mqttService.subscribe(newDevice.stateTopic, (topic, message) {
@@ -577,7 +603,7 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
           _saveDevicesToPrefs();
           _resetEsp32Timeout();
         });
-        print('MQTT: Re-subscribed state topic for existing device: ${existingDevice.name}');
+        debugPrint('MQTT: Re-subscribed state topic for existing device: ${existingDevice.name}');
       }
     }
   }
@@ -641,10 +667,10 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
       try {
         mqttService.publish(device.commandTopic, command);
       } catch (e) {
-        print('Error publishing MQTT command: $e');
+        debugPrint('Error publishing MQTT command: $e');
       }
     } else {
-      print('MQTT Broker is disconnected. Command "$command" to "${device.commandTopic}" was simulated locally.');
+      debugPrint('MQTT Broker is disconnected. Command "$command" to "${device.commandTopic}" was simulated locally.');
     }
   }
 

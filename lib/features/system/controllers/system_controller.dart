@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 
 class SystemController extends GetxController {
+  // [H-1, H-2 FIX] Gunakan secure storage untuk data sensitif
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
   final providerName = 'OpenRouter'.obs;
   final baseUrl = 'https://openrouter.ai/api/v1'.obs;
   final apiKey = ''.obs;
@@ -102,11 +108,10 @@ class SystemController extends GetxController {
   Future<void> _loadSettings() async {
     isLoading.value = true;
     final prefs = await SharedPreferences.getInstance();
+
+    // Non-sensitive settings — SharedPreferences OK
     providerName.value = prefs.getString('api_provider_name') ?? 'OpenRouter';
     baseUrl.value = prefs.getString('api_base_url') ?? 'https://openrouter.ai/api/v1';
-    apiKey.value = prefs.getString('api_key') ?? '';
-    
-    // Load dynamic connection variables
     connectionProtocol.value = prefs.getString('connection_protocol') ?? 'MQTT';
     mqttPreset.value = prefs.getString('mqtt_preset') ?? 'Docker';
     mqttHost.value = prefs.getString('mqtt_host') ?? '192.168.10.3';
@@ -116,8 +121,11 @@ class SystemController extends GetxController {
     mqttTlsHost.value = prefs.getString('mqtt_tls_host') ?? '';
     mqttTlsWsUrl.value = prefs.getString('mqtt_tls_websocket_url') ?? '';
     httpTargetUrl.value = prefs.getString('http_target_url') ?? 'http://192.168.10.3';
-    mqttUsername.value = prefs.getString('mqtt_username') ?? '';
-    mqttPassword.value = prefs.getString('mqtt_password') ?? '';
+
+    // [H-1, H-2 FIX] Sensitive credentials → FlutterSecureStorage
+    apiKey.value = await _secureStorage.read(key: 'api_key') ?? '';
+    mqttUsername.value = await _secureStorage.read(key: 'mqtt_username') ?? '';
+    mqttPassword.value = await _secureStorage.read(key: 'mqtt_password') ?? '';
 
     // Handle initial state depending on API key presence
     if (apiKey.value.trim().isEmpty) {
@@ -142,10 +150,13 @@ class SystemController extends GetxController {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     
+    // Non-sensitive → SharedPreferences
     await prefs.setString('api_provider_name', provider);
     await prefs.setString('api_base_url', url);
-    await prefs.setString('api_key', key);
     await prefs.setString('api_model_name', model);
+
+    // [H-1 FIX] API key → Secure Storage
+    await _secureStorage.write(key: 'api_key', value: key);
 
     providerName.value = provider;
     baseUrl.value = url;
@@ -174,6 +185,7 @@ class SystemController extends GetxController {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     
+    // Non-sensitive → SharedPreferences
     await prefs.setString('connection_protocol', protocol);
     await prefs.setString('mqtt_preset', preset);
     await prefs.setString('mqtt_host', host);
@@ -183,8 +195,10 @@ class SystemController extends GetxController {
     await prefs.setString('mqtt_tls_host', tlsHost);
     await prefs.setString('mqtt_tls_websocket_url', tlsWsUrl);
     await prefs.setString('http_target_url', httpUrl);
-    await prefs.setString('mqtt_username', username ?? '');
-    await prefs.setString('mqtt_password', password ?? '');
+
+    // [H-2 FIX] MQTT credentials → Secure Storage
+    await _secureStorage.write(key: 'mqtt_username', value: username ?? '');
+    await _secureStorage.write(key: 'mqtt_password', value: password ?? '');
 
     connectionProtocol.value = protocol;
     mqttPreset.value = preset;

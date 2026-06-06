@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Configuration
+  - Release: cleartext hanya izin untuk range IP broker LAN lokal (192.168.x.x, 10.x.x.x)
+  - Debug: cleartext diizinkan semua (untuk kemudahan development & testing)
+-->
+<network-security-config>
+
+  <!-- ✅ Debug override: di debug build, cleartext boleh ke mana saja -->
+  <!-- Ini TIDAK berlaku di release/production build -->
+  <debug-overrides>
+    <trust-anchors>
+      <certificates src="system" />
+      <certificates src="user" />
+    </trust-anchors>
+  </debug-overrides>
+
+  <!-- Izinkan cleartext ke IP LAN lokal yang umum dipakai untuk broker -->
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">192.168.10.3</domain>
+    <domain includeSubdomains="false">192.168.1.1</domain>
+    <domain includeSubdomains="false">10.0.0.1</domain>
+    <domain includeSubdomains="false">localhost</domain>
+    <domain includeSubdomains="false">127.0.0.1</domain>
+  </domain-config>
+
+  <!-- Semua koneksi lain (API OpenRouter/OpenAI dll) WAJIB TLS -->
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+
+</network-security-config>
