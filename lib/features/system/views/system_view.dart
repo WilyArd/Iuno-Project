@@ -301,8 +301,8 @@ class SystemView extends StatelessWidget {
     Color? statusDot,
   }) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.fastOutSlowIn,
       margin: const EdgeInsets.only(bottom: 2),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -415,22 +415,29 @@ class SystemView extends StatelessWidget {
                 ),
               ),
             ),
-            AnimatedCrossFade(
-              firstChild: const SizedBox.shrink(),
-              secondChild: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  border: Border(
-                    top: BorderSide(color: iconColor.withValues(alpha: 0.1), width: 1),
-                  ),
-                ),
-                padding: const EdgeInsets.all(20),
-                child: child,
+            ClipRect(
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.fastOutSlowIn,
+                alignment: Alignment.topCenter,
+                child: isExpanded
+                    ? Container(
+                        key: ValueKey('${title}_expanded'),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          border: Border(
+                            top: BorderSide(color: iconColor.withValues(alpha: 0.1), width: 1),
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(20),
+                        child: child,
+                      )
+                    : SizedBox(
+                        key: ValueKey('${title}_collapsed'),
+                        width: double.infinity,
+                        height: 0,
+                      ),
               ),
-              crossFadeState: isExpanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 250),
             ),
           ],
         ),

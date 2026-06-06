@@ -10,31 +10,14 @@ import '../../features/system/controllers/system_controller.dart';
 
 class MainLayoutController extends GetxController {
   var selectedIndex = 0.obs;
-  late PageController pageController;
 
   @override
   void onInit() {
     super.onInit();
     Get.put(SystemController());
-    pageController = PageController(initialPage: selectedIndex.value);
-  }
-
-  @override
-  void onClose() {
-    pageController.dispose();
-    super.onClose();
   }
 
   void changeTab(int index) {
-    selectedIndex.value = index;
-    pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  void onPageChanged(int index) {
     selectedIndex.value = index;
   }
 }
@@ -152,12 +135,10 @@ class MainLayout extends StatelessWidget {
             children: [
               _buildDesktopTopBar(),
               Expanded(
-                child: PageView(
-                  controller: controller.pageController,
-                  onPageChanged: controller.onPageChanged,
-                  physics: const NeverScrollableScrollPhysics(),
+                child: Obx(() => IndexedStack(
+                  index: controller.selectedIndex.value,
                   children: pages,
-                ),
+                )),
               ),
             ],
           ),
@@ -307,12 +288,10 @@ class MainLayout extends StatelessWidget {
           ),
         ),
       ),
-      body: PageView(
-        controller: controller.pageController,
-        onPageChanged: controller.onPageChanged,
-        physics: const NeverScrollableScrollPhysics(),
+      body: Obx(() => IndexedStack(
+        index: controller.selectedIndex.value,
         children: pages,
-      ),
+      )),
       bottomNavigationBar: isKeyboardVisible ? null : _buildBottomNav(),
     );
   }
