@@ -8,6 +8,7 @@ class DeviceWidgetModel {
   final String unit;
   final String stateTopic;
   final String commandTopic;
+  final String deviceGroup; // Pengelompokan berdasarkan device fisik
   
   // Reactive properties for the UI
   var value = "--".obs;
@@ -22,6 +23,7 @@ class DeviceWidgetModel {
     required this.unit,
     required this.stateTopic,
     required this.commandTopic,
+    this.deviceGroup = 'Default Device',
   });
 
   factory DeviceWidgetModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class DeviceWidgetModel {
       unit: json['unit'] ?? '',
       stateTopic: json['state_topic'] ?? '',
       commandTopic: json['command_topic'] ?? '',
+      deviceGroup: json['device_group'] ?? 'Default Device',
     );
     // Restore last known value so switch/relay shows the correct persisted state
     final savedValue = json['last_value'] as String?;
@@ -49,6 +52,7 @@ class DeviceWidgetModel {
       'unit': unit,
       'state_topic': stateTopic,
       'command_topic': commandTopic,
+      'device_group': deviceGroup,
       // Persist the last known value so relay/switch state survives app restarts
       'last_value': value.value,
     };
