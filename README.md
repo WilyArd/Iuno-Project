@@ -9,31 +9,38 @@ Iuno is a Flutter-based IoT dashboard that monitors sensor data in real-time and
 ## ✨ Key Features
 
 ### 🧠 Native Edge AI (Fuzzy Logic)
-Iuno doesn't just display data — it *thinks*. Without any external backend or Python server, the app calculates recommended targets (e.g. optimal temperature and humidity) directly on-device using a fuzzy logic engine.
+
+Iuno doesn't just display data — it _thinks_. Without any external backend or Python server, the app calculates recommended targets (e.g. optimal temperature and humidity) directly on-device using a fuzzy logic engine.
 
 ### 📈 Real-Time Analytics & Live Trends
+
 Telemetry charts are rendered in real-time using `fl_chart` with smooth curves, precise dynamic axis ranges per sensor category, and a live "LIVE TRENDS" badge.
 
 ### 🔌 MQTT Connectivity & Background Keep-Alive
+
 - **TLS/SSL Encryption**: Supports local brokers and encrypted cloud brokers (e.g. HiveMQ Cloud) with automatic domain sanitization and authentication.
 - **Background Service**: Powered by `flutter_foreground_task` — the MQTT client stays alive even when the phone screen is off or the app is in the background.
 - **Lifecycle-Aware**: The background service automatically shuts down when the app is dismissed from the recents list, preserving battery life.
 
 ### 🎨 Modern UI/UX (Slate-Teal Palette)
+
 - Premium Neubrutalism-inspired design with Slate, Navy, and Teal accent colors.
 - Micro-animations: tactile spring button presses, 180° card rotation transitions, smooth expand/collapse.
 - AI Assistant page styled like a modern chat messenger with adaptive message bubbles and active model status.
 
 ### 🛠️ Custom Device & Widget Creator
+
 - Instantly create **Sensor**, **Switch**, or **Button** widgets via the `+` menu from inside any device page.
 - **Long-press** any widget card to rename or delete it via an interactive dialog.
 - Test without physical hardware using the built-in **Demo Mode**, which auto-generates realistic sensor waveforms.
 
 ### 📱 Dynamic Device Info & External Links
+
 - Shows accurate hardware specs (OS Version, Device Model, CPU Cores) via `device_info_plus`.
-- Opens the GitHub repository directly from the *About & Version* section via `url_launcher`.
+- Opens the GitHub repository directly from the _About & Version_ section via `url_launcher`.
 
 ### 🔒 Secure Storage
+
 - Sensitive settings (API Key, MQTT credentials) are encrypted at rest using `flutter_secure_storage`.
 - Network security config restricts cleartext traffic to known local IP ranges only.
 
@@ -44,17 +51,21 @@ Telemetry charts are rendered in real-time using `fl_chart` with smooth curves, 
 Iuno uses a **dynamic MQTT Auto-Discovery** system. Your ESP32 simply publishes a JSON configuration payload once when it connects to the MQTT broker. The Iuno app detects this automatically and renders the correct sensor/switch widgets — no Flutter code changes required.
 
 ### Discovery Topic Pattern
+
 ESP32 publishes its configuration to:
+
 ```
 iuno/<device_id>/discovery/<widget_id>
 ```
 
 The Flutter app subscribes to the wildcard pattern:
+
 ```
 iuno/+/discovery/#
 ```
 
 ### Discovery Payload Format
+
 ```json
 {
   "id": "esp32_temp_sensor",
@@ -66,17 +77,19 @@ iuno/+/discovery/#
 }
 ```
 
-| Field | Required | Description |
-|---|---|---|
-| `id` | ✅ | Unique widget identifier (max 64 chars) |
-| `type` | ✅ | `sensor`, `switch`, or `button` |
-| `name` | ✅ | Widget display title (max 100 chars) |
-| `unit` | ❌ | Unit of measurement (sensors only, e.g. `°C`, `%`) |
-| `state_topic` | ✅ | Topic where the device publishes its current state/value |
-| `command_topic` | ❌ | Topic where the app sends ON/OFF commands (switch/button only) |
+| Field           | Required | Description                                                    |
+| --------------- | -------- | -------------------------------------------------------------- |
+| `id`            | ✅       | Unique widget identifier (max 64 chars)                        |
+| `type`          | ✅       | `sensor`, `switch`, or `button`                                |
+| `name`          | ✅       | Widget display title (max 100 chars)                           |
+| `unit`          | ❌       | Unit of measurement (sensors only, e.g. `°C`, `%`)             |
+| `state_topic`   | ✅       | Topic where the device publishes its current state/value       |
+| `command_topic` | ❌       | Topic where the app sends ON/OFF commands (switch/button only) |
 
 ### Rediscover Signal
+
 When the Iuno app launches or reconnects to the broker, it sends a `"rediscover"` message to:
+
 ```
 iuno/device/cmd
 ```
@@ -92,6 +105,7 @@ iuno/device/cmd
 This is the quickest setup for development on a local network (e.g. using Mosquitto on your laptop or a Raspberry Pi).
 
 **Required Arduino Libraries:**
+
 - `PubSubClient` by Nick O'Leary
 - `ArduinoJson` by Benoît Blanchon
 
@@ -249,6 +263,7 @@ HiveMQ Cloud is a popular managed cloud MQTT broker with TLS encryption on port 
 **Required changes vs. Option A:**
 
 #### 1. Replace `WiFiClient` with `WiFiClientSecure`
+
 ```cpp
 #include <WiFiClientSecure.h>  // Replaces <WiFi.h> for TLS support
 
@@ -257,6 +272,7 @@ PubSubClient     client(espClient);
 ```
 
 #### 2. Set HiveMQ Credentials
+
 ```cpp
 // Get your unique cluster host from your HiveMQ Cloud console
 const char* mqtt_server = "xxxxxxxxxxxxxxxx.s2.eu.hivemq.cloud";
@@ -266,6 +282,7 @@ const char* mqtt_pass   = "your_hivemq_password";
 ```
 
 #### 3. Enable Insecure TLS in `setup()` (Skip Root CA Verification)
+
 ```cpp
 void setup() {
   pinMode(RELAY_PIN, OUTPUT);
@@ -282,6 +299,7 @@ void setup() {
 ```
 
 #### 4. Add Credentials to `reconnect()`
+
 ```cpp
 void reconnect() {
   while (!client.connected()) {
@@ -303,6 +321,7 @@ void reconnect() {
 ```
 
 > **In the Iuno app's System Settings:**
+>
 > - Select the **HiveMQ Cloud** preset.
 > - Paste your cluster host into the **TLS Host** field.
 > - Enter the same username and password you set in your HiveMQ console.
@@ -313,6 +332,7 @@ void reconnect() {
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - [Flutter SDK](https://docs.flutter.dev/get-started/install) ≥ 3.11
 - Android device or emulator running **API 21 (Android 5.0)** or higher
 - An MQTT broker (local Mosquitto or HiveMQ Cloud)
@@ -342,6 +362,7 @@ flutter build apk --release --target-platform android-arm64
 ```
 
 The output file will be at:
+
 ```
 build/app/outputs/flutter-apk/app-release.apk
 ```
@@ -363,6 +384,7 @@ git push origin v1.0.1-beta.2
 ```
 
 That's it. GitHub Actions will:
+
 1. Check out the code.
 2. Set up Java 17 and the Flutter stable SDK.
 3. Run `flutter pub get`.
@@ -375,19 +397,19 @@ Monitor the build progress in the **Actions** tab of this repository.
 
 ## 🧰 Technology Stack
 
-| Package | Purpose |
-|---|---|
-| **Flutter / Dart** | Cross-platform UI framework (min Android API 21) |
-| **GetX** | State management, routing, and reactive UI |
-| **mqtt_client** | MQTT protocol client for IoT connectivity |
-| **flutter_foreground_task** | Background service to keep MQTT alive |
-| **flutter_secure_storage** | Encrypted local storage for sensitive credentials |
-| **fl_chart** | Real-time telemetry chart rendering |
-| **device_info_plus** | Dynamic hardware/OS specification detection |
-| **shared_preferences** | Local storage for broker config and custom widgets |
-| **google_fonts** | Modern typography (Space Grotesk & Outfit) |
-| **url_launcher** | Open external links in the device browser |
-| **http** | HTTP client for AI API provider requests |
+| Package                     | Purpose                                            |
+| --------------------------- | -------------------------------------------------- |
+| **Flutter / Dart**          | Cross-platform UI framework (min Android API 21)   |
+| **GetX**                    | State management, routing, and reactive UI         |
+| **mqtt_client**             | MQTT protocol client for IoT connectivity          |
+| **flutter_foreground_task** | Background service to keep MQTT alive              |
+| **flutter_secure_storage**  | Encrypted local storage for sensitive credentials  |
+| **fl_chart**                | Real-time telemetry chart rendering                |
+| **device_info_plus**        | Dynamic hardware/OS specification detection        |
+| **shared_preferences**      | Local storage for broker config and custom widgets |
+| **google_fonts**            | Modern typography (Space Grotesk & Outfit)         |
+| **url_launcher**            | Open external links in the device browser          |
+| **http**                    | HTTP client for AI API provider requests           |
 
 ---
 
@@ -415,9 +437,3 @@ lib/
 - **API keys and MQTT passwords** are stored using `flutter_secure_storage` (Android Keystore encryption), not in plain SharedPreferences.
 - **TLS certificate validation bypass** (`onBadCertificate`) is gated behind `kDebugMode` only and does not affect release builds.
 - **MQTT topic validation** prevents wildcard injection (`#`, `+`) in discovery payloads.
-
----
-
-## 📄 License
-
-[MIT License](LICENSE)
