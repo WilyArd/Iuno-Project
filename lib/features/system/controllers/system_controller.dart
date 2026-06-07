@@ -37,6 +37,9 @@ class SystemController extends GetxController {
   final cpuCoreCount = 'Loading...'.obs;
   final dartVersion = 'Loading...'.obs;
 
+  // Language preference: 'en' or 'id'
+  final appLanguage = 'en'.obs;
+
   final isLoading = true.obs;
   final isTestingConnection = false.obs;
   
@@ -121,6 +124,7 @@ class SystemController extends GetxController {
     mqttTlsHost.value = prefs.getString('mqtt_tls_host') ?? '';
     mqttTlsWsUrl.value = prefs.getString('mqtt_tls_websocket_url') ?? '';
     httpTargetUrl.value = prefs.getString('http_target_url') ?? 'http://192.168.10.3';
+    appLanguage.value = prefs.getString('app_language') ?? 'en';
 
     // [H-1, H-2 FIX] Sensitive credentials → FlutterSecureStorage
     apiKey.value = await _secureStorage.read(key: 'api_key') ?? '';
@@ -140,6 +144,27 @@ class SystemController extends GetxController {
     }
     
     isLoading.value = false;
+  }
+
+  /// Saves the selected language code ('en' or 'id') and applies it immediately.
+  Future<void> saveLanguage(String langCode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('app_language', langCode);
+    appLanguage.value = langCode;
+    final locale = langCode == 'id'
+        ? const Locale('id', 'ID')
+        : const Locale('en', 'US');
+    Get.updateLocale(locale);
+    Get.snackbar(
+      'language_saved'.tr,
+      'language_saved_body'.tr,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.black,
+      colorText: Colors.white,
+      borderRadius: 14,
+      margin: const EdgeInsets.all(16),
+      duration: const Duration(seconds: 2),
+    );
   }
 
   Future<void> saveSettings({

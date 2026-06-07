@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,14 +31,17 @@ class MainLayout extends StatelessWidget {
   final List<Widget> pages = [
     DashboardView(),
     AnalyticsView(),
-    AssistantView(),
+    // AI Assistant: visible in debug/dev mode only
+    if (kDebugMode) AssistantView(),
     SystemView(),
   ];
 
-  static const _tabItems = [
+  // Navigation tab definitions — mirrors `pages` order.
+  // Assistant tab is only included in debug/dev builds.
+  List<Map<String, dynamic>> get _tabItems => [
     {'icon': Icons.sensors_rounded, 'label': 'Devices'},
     {'icon': Icons.bar_chart_rounded, 'label': 'Analytics'},
-    {'icon': Icons.auto_awesome_rounded, 'label': 'Assistant'},
+    if (kDebugMode) {'icon': Icons.auto_awesome_rounded, 'label': 'Assistant'},
     {'icon': Icons.settings_rounded, 'label': 'System'},
   ];
 

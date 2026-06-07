@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -110,18 +111,21 @@ class SystemView extends StatelessWidget {
                       onTap: () => _toggleTile('Simulation'),
                       child: _buildSimulationContent(dash),
                     ),
-                    _buildSectionHeader('Intelligence'),
-                    _buildSettingTile(
-                      icon: Icons.auto_awesome_rounded,
-                      iconColor: const Color(0xFF8B5CF6),
-                      title: 'AI Provider',
-                      subtitle: '${controller.providerName.value}  ·  ${controller.modelName.value.isEmpty ? "Not set" : controller.modelName.value}',
-                      isExpanded: expanded == 'AI',
-                      onTap: () => _toggleTile('AI'),
-                      child: controller.isLoading.value
-                          ? const Center(child: CircularProgressIndicator())
-                          : _buildAiCardContent(context),
-                    ),
+                    // ── AI Provider: debug/dev only ──────────────────
+                    if (kDebugMode) ...[
+                      _buildSectionHeader('Intelligence'),
+                      _buildSettingTile(
+                        icon: Icons.auto_awesome_rounded,
+                        iconColor: const Color(0xFF8B5CF6),
+                        title: 'AI Provider',
+                        subtitle: '${controller.providerName.value}  ·  ${controller.modelName.value.isEmpty ? "Not set" : controller.modelName.value}',
+                        isExpanded: expanded == 'AI',
+                        onTap: () => _toggleTile('AI'),
+                        child: controller.isLoading.value
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildAiCardContent(context),
+                      ),
+                    ],
                     _buildSectionHeader('App'),
                     _buildSettingTile(
                       icon: Icons.palette_rounded,
@@ -132,11 +136,22 @@ class SystemView extends StatelessWidget {
                       onTap: () => _toggleTile('Theme'),
                       child: _buildThemeContent(),
                     ),
+                    Obx(() => _buildSettingTile(
+                      icon: Icons.language_rounded,
+                      iconColor: const Color(0xFF0EA5E9),
+                      title: 'Language',
+                      subtitle: controller.appLanguage.value == 'id'
+                          ? 'Bahasa Indonesia'
+                          : 'English',
+                      isExpanded: expanded == 'Language',
+                      onTap: () => _toggleTile('Language'),
+                      child: _buildLanguageContent(),
+                    )),
                     _buildSettingTile(
                       icon: Icons.info_outline_rounded,
                       iconColor: const Color(0xFF64748B),
                       title: 'About & Version',
-                      subtitle: 'IUNO IoT  ·  v1.0.0-beta.1',
+                      subtitle: 'IUNO IoT  ·  v1.0.1-beta.1',
                       isExpanded: expanded == 'Info',
                       onTap: () => _toggleTile('Info'),
                       child: _buildSystemInfoContent(),
@@ -1052,7 +1067,7 @@ class SystemView extends StatelessWidget {
     );
   }
 
-  // ─── Theme & Aesthetics Content ────────────────────────
+  // ─── Theme & Aesthetics Content ──────────────────────
   Widget _buildThemeContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1111,6 +1126,153 @@ class SystemView extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  // ─── Language Content ───────────────────────────────
+  Widget _buildLanguageContent() {
+    return Obx(() {
+      final currentLang = controller.appLanguage.value;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Choose the display language for the app.',
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 13,
+              color: const Color(0xFF888888),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // English option
+          _buildLanguageOption(
+            langCode: 'en',
+            flag: '🇺🇸',
+            label: 'English',
+            nativeLabel: 'English',
+            isSelected: currentLang == 'en',
+            onTap: () => controller.saveLanguage('en'),
+          ),
+          const SizedBox(height: 10),
+          // Indonesian option
+          _buildLanguageOption(
+            langCode: 'id',
+            flag: '🇮🇩',
+            label: 'Bahasa Indonesia',
+            nativeLabel: 'Indonesian',
+            isSelected: currentLang == 'id',
+            onTap: () => controller.saveLanguage('id'),
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _buildLanguageOption({
+    required String langCode,
+    required String flag,
+    required String label,
+    required String nativeLabel,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF0A1F30) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF0A1F30) : const Color(0xFFE5E9EF),
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF0A1F30).withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+        ),
+        child: Row(
+          children: [
+            // Flag emoji in a rounded container
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : const Color(0xFFF4F6FA),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: Text(
+                  flag,
+                  style: const TextStyle(fontSize: 22),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    nativeLabel,
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected
+                          ? Colors.white.withValues(alpha: 0.6)
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Checkmark
+            AnimatedOpacity(
+              opacity: isSelected ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 15,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
