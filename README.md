@@ -1,205 +1,216 @@
 # Iuno IoT Dashboard
 
-Iuno adalah aplikasi *dashboard* IoT cerdas berbasis Flutter yang dirancang untuk memantau data sensor secara *real-time* dan melakukan otomasi pengambilan keputusan (*Edge AI*). Aplikasi ini mengadopsi gaya desain **Neubrutalism** yang mencolok, modern, dan fungsional.
+> **A smart, real-time IoT dashboard built with Flutter — connecting your ESP32 devices to a beautiful, modern interface.**
 
-## Fitur Utama
-
-🧠 **Native Edge AI (Fuzzy Logic)**
-Aplikasi ini tidak sekadar menampilkan data, tapi juga bisa "berpikir" sendiri! Tanpa bergantung pada server atau *backend* Python eksternal, Iuno mengalkulasikan target suhu dan kelembaban secara langsung di dalam perangkat (HP) secara otomatis.
-
-📈 **Real-Time Analytics & Live Trends**
-Grafik data telemetri digambar secara *real-time* tanpa *lag* menggunakan `fl_chart`. Visualisasi grafik dibuat sangat bersih dengan kurva landai, sumbu dinamis yang presisi untuk tiap kategori sensor, serta indikator status "LIVE TRENDS" yang interaktif.
-
-🔌 **Konektivitas MQTT & Background Keep-Alive**
-- **Koneksi Aman TLS/SSL**: Mendukung broker lokal maupun cloud terenkripsi (seperti HiveMQ Cloud) dengan mekanisme otentikasi serta pembersihan domain otomatis.
-- **Background Service**: Didukung `flutter_foreground_task`, MQTT client tetap hidup saat layar HP tidur atau saat aplikasi berjalan di latar belakang guna mencegah siklus putus-sambung (*reconnect*).
-- **Lifecycle-Aware**: Layanan latar belakang otomatis mati ketika aplikasi disapu (*swiped*) dari daftar aplikasi terbaru demi kehematan daya baterai.
-
-🎨 **UI/UX Modern (Neubrutalism & Slate-Teal Palette)**
-- Desain unik Neubrutalism yang diperhalus dengan aksen warna Slate, Navy, dan Teal untuk memberikan kesan premium.
-- Animasi mikro interaktif seperti efek membal (*tactile spring*) saat menekan tombol manual serta transisi rotasi 180° pada kartu pengaturan.
-- Halaman Asisten AI yang didesain menyerupai chat messenger modern dengan status model aktif dan gelembung chat adaptif.
-
-🛠️ **Custom Device Creator & Dynamic Simulations**
-- Buat widget Sensor (disertai satuan ukuran), Sakelar (Switch), atau Tombol (Button) baru secara instan langsung melalui menu tambah (+).
-- Ubah nama (*rename*) atau hapus widget secara dinamis melalui dialog interaktif dengan menahan lama (*long-press*) kartu widget bersangkutan.
-- Siklus pengujian tanpa alat fisik dimungkinkan berkat generator simulator internal yang memancarkan pola data unik secara otomatis untuk setiap nama sensor.
-
-📱 **Device Info Dinamis & External Link Access**
-- Menampilkan spesifikasi *hardware* & OS yang akurat berdasarkan tipe perangkat HP Anda (OS Version, Device Model, CPU Cores) via `device_info_plus`.
-- Mengakses repositori GitHub eksternal pada bagian *About & Version* yang langsung membuka browser eksternal bawaan dengan `url_launcher`.
-
-## Protokol MQTT Auto-Discovery & Integrasi ESP32
-
-Iuno menggunakan sistem **MQTT Auto-Discovery** yang dinamis. Mikrokontroler (ESP32) cukup mengirimkan berkas konfigurasi berbentuk JSON sekali saja saat terhubung ke broker MQTT. Dashboard aplikasi Iuno akan mendeteksi payload tersebut secara otomatis, lalu merender dan memvisualisasikan widget sensor/sakelar secara instan tanpa perlu melakukan koding ulang di aplikasi Flutter.
-
-### 1. Struktur Payload Penemuan (Discovery Topic)
-ESP32 mengirimkan konfigurasi pada topik ber-pattern:  
-`iuno/<device_id>/discovery/<widget_id>`
-
-Topik subscribe di aplikasi Flutter adalah:  
-`iuno/+/discovery/#`
-
-Struktur payload JSON yang dikirimkan oleh ESP32:
-```json
-{
-  "id": "esp32_sensor_suhu",          // ID unik widget
-  "type": "sensor | switch | button", // Tipe widget kontrol
-  "name": "Suhu DHT22",               // Judul widget di dashboard
-  "unit": "°C",                       // Satuan (opsional, hanya untuk sensor)
-  "state_topic": "iuno/esp32/temp",   // Topik sensor mengirim data statusnya
-  "command_topic": ""                 // Topik menerima perintah (opsional, hanya untuk switch/button)
-}
-```
-
-### 2. Sinyal Rediscover (Permintaan Hub)
-Saat aplikasi Iuno pertama kali berjalan atau berhasil terhubung ulang ke Broker, aplikasi akan mengirimkan pesan `"rediscover"` ke topik:  
-`iuno/device/cmd`
-
-Setiap mikrokontroler (ESP32) wajib berlangganan (*subscribe*) ke topik tersebut dan langsung memancarkan ulang berkas konfigurasi discovery-nya agar sinkronisasi dashboard kembali terjalin secara otomatis.
+Iuno is a Flutter-based IoT dashboard that monitors sensor data in real-time and supports intelligent automation. It features a premium Slate-Teal design language, MQTT auto-discovery for zero-config device integration, and a built-in Edge AI assistant.
 
 ---
 
-### 3. Kode Arduino / ESP32 Siap Pakai
+## ✨ Key Features
 
-Berikut adalah contoh *sketch* Arduino C++ lengkap menggunakan library **PubSubClient** dan **ArduinoJson** untuk ESP32:
+### 🧠 Native Edge AI (Fuzzy Logic)
+Iuno doesn't just display data — it *thinks*. Without any external backend or Python server, the app calculates recommended targets (e.g. optimal temperature and humidity) directly on-device using a fuzzy logic engine.
+
+### 📈 Real-Time Analytics & Live Trends
+Telemetry charts are rendered in real-time using `fl_chart` with smooth curves, precise dynamic axis ranges per sensor category, and a live "LIVE TRENDS" badge.
+
+### 🔌 MQTT Connectivity & Background Keep-Alive
+- **TLS/SSL Encryption**: Supports local brokers and encrypted cloud brokers (e.g. HiveMQ Cloud) with automatic domain sanitization and authentication.
+- **Background Service**: Powered by `flutter_foreground_task` — the MQTT client stays alive even when the phone screen is off or the app is in the background.
+- **Lifecycle-Aware**: The background service automatically shuts down when the app is dismissed from the recents list, preserving battery life.
+
+### 🎨 Modern UI/UX (Slate-Teal Palette)
+- Premium Neubrutalism-inspired design with Slate, Navy, and Teal accent colors.
+- Micro-animations: tactile spring button presses, 180° card rotation transitions, smooth expand/collapse.
+- AI Assistant page styled like a modern chat messenger with adaptive message bubbles and active model status.
+
+### 🛠️ Custom Device & Widget Creator
+- Instantly create **Sensor**, **Switch**, or **Button** widgets via the `+` menu from inside any device page.
+- **Long-press** any widget card to rename or delete it via an interactive dialog.
+- Test without physical hardware using the built-in **Demo Mode**, which auto-generates realistic sensor waveforms.
+
+### 📱 Dynamic Device Info & External Links
+- Shows accurate hardware specs (OS Version, Device Model, CPU Cores) via `device_info_plus`.
+- Opens the GitHub repository directly from the *About & Version* section via `url_launcher`.
+
+### 🔒 Secure Storage
+- Sensitive settings (API Key, MQTT credentials) are encrypted at rest using `flutter_secure_storage`.
+- Network security config restricts cleartext traffic to known local IP ranges only.
+
+---
+
+## 📡 MQTT Auto-Discovery Protocol
+
+Iuno uses a **dynamic MQTT Auto-Discovery** system. Your ESP32 simply publishes a JSON configuration payload once when it connects to the MQTT broker. The Iuno app detects this automatically and renders the correct sensor/switch widgets — no Flutter code changes required.
+
+### Discovery Topic Pattern
+ESP32 publishes its configuration to:
+```
+iuno/<device_id>/discovery/<widget_id>
+```
+
+The Flutter app subscribes to the wildcard pattern:
+```
+iuno/+/discovery/#
+```
+
+### Discovery Payload Format
+```json
+{
+  "id": "esp32_temp_sensor",
+  "type": "sensor | switch | button",
+  "name": "DHT22 Temperature",
+  "unit": "°C",
+  "state_topic": "iuno/esp32/temp",
+  "command_topic": ""
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | ✅ | Unique widget identifier (max 64 chars) |
+| `type` | ✅ | `sensor`, `switch`, or `button` |
+| `name` | ✅ | Widget display title (max 100 chars) |
+| `unit` | ❌ | Unit of measurement (sensors only, e.g. `°C`, `%`) |
+| `state_topic` | ✅ | Topic where the device publishes its current state/value |
+| `command_topic` | ❌ | Topic where the app sends ON/OFF commands (switch/button only) |
+
+### Rediscover Signal
+When the Iuno app launches or reconnects to the broker, it sends a `"rediscover"` message to:
+```
+iuno/device/cmd
+```
+
+**Every ESP32 must subscribe to this topic** and immediately re-publish its discovery payload when it receives this signal. This ensures the dashboard auto-populates correctly after a reconnection.
+
+---
+
+## ⚙️ ESP32 Firmware Setup
+
+### Option A — Local Broker (Standard, No TLS)
+
+This is the quickest setup for development on a local network (e.g. using Mosquitto on your laptop or a Raspberry Pi).
+
+**Required Arduino Libraries:**
+- `PubSubClient` by Nick O'Leary
+- `ArduinoJson` by Benoît Blanchon
 
 ```cpp
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-// 1. Konfigurasi Jaringan Wi-Fi Anda
-const char* ssid = "NAMA_WIFI_ANDA";
-const char* password = "PASSWORD_WIFI_ANDA";
+// ─── 1. Wi-Fi Configuration ───────────────────────────────────────
+const char* ssid     = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
 
-// 2. Konfigurasi Broker MQTT (Sesuaikan dengan IP yang disetel pada System Settings aplikasi Iuno)
-const char* mqtt_server = "192.168.10.3"; 
-const int mqtt_port = 1883;
+// ─── 2. MQTT Broker Configuration ─────────────────────────────────
+// Must match the IP you set in the Iuno app's System Settings
+const char* mqtt_server = "192.168.10.3";
+const int   mqtt_port   = 1883;
 
-WiFiClient espClient;
+// ─── 3. Hardware Pins ─────────────────────────────────────────────
+const int RELAY_PIN = 2; // Onboard LED / Relay pin
+
+WiFiClient   espClient;
 PubSubClient client(espClient);
-
-// Pin fisik aktuator/relay
-const int RELAY_PIN = 2; // LED bawaan board ESP32
-
 unsigned long lastMsg = 0;
 
+// ─── Wi-Fi Setup ──────────────────────────────────────────────────
 void setup_wifi() {
-  delay(10);
-  Serial.println();
-  Serial.print("Menghubungkan ke ");
-  Serial.println(ssid);
-
+  Serial.print("Connecting to Wi-Fi");
   WiFi.begin(ssid, password);
-
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
-  Serial.println("\nWi-Fi terhubung!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println("\nWi-Fi connected! IP: " + WiFi.localIP().toString());
 }
 
-// Mengirim JSON Auto-Discovery untuk mendaftarkan Widget ke aplikasi Iuno secara otomatis
+// ─── Auto-Discovery Publisher ──────────────────────────────────────
+// Call this once on connect to register all widgets in the Iuno app
 void publishDiscovery() {
-  Serial.println("Mengirimkan Konfigurasi Auto-Discovery...");
+  Serial.println("Publishing Auto-Discovery config...");
 
-  // A. Pendaftaran Widget 1: Sensor Suhu DHT22
+  // Widget 1: Temperature Sensor
   StaticJsonDocument<256> docTemp;
-  docTemp["id"] = "esp32_suhu_dht22";
-  docTemp["type"] = "sensor";
-  docTemp["name"] = "Suhu DHT22";
-  docTemp["unit"] = "°C";
-  docTemp["state_topic"] = "iuno/esp32/suhu";
+  docTemp["id"]            = "esp32_temp_dht22";
+  docTemp["type"]          = "sensor";
+  docTemp["name"]          = "DHT22 Temperature";
+  docTemp["unit"]          = "°C";
+  docTemp["state_topic"]   = "iuno/esp32/temp";
   docTemp["command_topic"] = "";
-  
-  char bufferTemp[256];
-  serializeJson(docTemp, bufferTemp);
-  client.publish("iuno/esp32/discovery/temp", bufferTemp);
+  char bufTemp[256];
+  serializeJson(docTemp, bufTemp);
+  client.publish("iuno/esp32/discovery/temp", bufTemp);
 
-  // B. Pendaftaran Widget 2: Sensor Kelembaban DHT22
+  // Widget 2: Humidity Sensor
   StaticJsonDocument<256> docHum;
-  docHum["id"] = "esp32_kelembaban_dht22";
-  docHum["type"] = "sensor";
-  docHum["name"] = "Kelembaban DHT22";
-  docHum["unit"] = "%";
-  docHum["state_topic"] = "iuno/esp32/kelembaban";
+  docHum["id"]            = "esp32_hum_dht22";
+  docHum["type"]          = "sensor";
+  docHum["name"]          = "DHT22 Humidity";
+  docHum["unit"]          = "%";
+  docHum["state_topic"]   = "iuno/esp32/humidity";
   docHum["command_topic"] = "";
-  
-  char bufferHum[256];
-  serializeJson(docHum, bufferHum);
-  client.publish("iuno/esp32/discovery/hum", bufferHum);
+  char bufHum[256];
+  serializeJson(docHum, bufHum);
+  client.publish("iuno/esp32/discovery/hum", bufHum);
 
-  // C. Pendaftaran Widget 3: Sakelar Relay Fisik
+  // Widget 3: Relay Switch
   StaticJsonDocument<256> docRelay;
-  docRelay["id"] = "esp32_relay_switch";
-  docRelay["type"] = "switch";
-  docRelay["name"] = "Relay Switch";
-  docRelay["unit"] = "";
-  docRelay["state_topic"] = "iuno/esp32/relay/state";
+  docRelay["id"]            = "esp32_relay_switch";
+  docRelay["type"]          = "switch";
+  docRelay["name"]          = "Relay Switch";
+  docRelay["unit"]          = "";
+  docRelay["state_topic"]   = "iuno/esp32/relay/state";
   docRelay["command_topic"] = "iuno/esp32/relay/cmd";
-  
-  char bufferRelay[256];
-  serializeJson(docRelay, bufferRelay);
-  client.publish("iuno/esp32/discovery/relay", bufferRelay);
+  char bufRelay[256];
+  serializeJson(docRelay, bufRelay);
+  client.publish("iuno/esp32/discovery/relay", bufRelay);
 }
 
+// ─── Incoming Message Handler ──────────────────────────────────────
 void callback(char* topic, byte* payload, unsigned int length) {
   String message = "";
-  for (int i = 0; i < length; i++) {
-    message += (char)payload[i];
-  }
-  
-  Serial.print("Pesan masuk [");
-  Serial.print(topic);
-  Serial.print("]: ");
-  Serial.println(message);
+  for (int i = 0; i < length; i++) message += (char)payload[i];
 
-  // Tanggapi sinyal rediscovery dari aplikasi Flutter
+  Serial.println("Message [" + String(topic) + "]: " + message);
+
+  // Respond to app rediscovery request
   if (String(topic) == "iuno/device/cmd" && message == "rediscover") {
     publishDiscovery();
   }
-  
-  // Tanggapi kontrol Switch dari aplikasi Iuno
+
+  // Respond to relay switch commands from the Iuno app
   if (String(topic) == "iuno/esp32/relay/cmd") {
     if (message == "ON") {
       digitalWrite(RELAY_PIN, HIGH);
-      client.publish("iuno/esp32/relay/state", "ON"); // Kirim state balik ke app
-      Serial.println("Relay aktif (ON)");
+      client.publish("iuno/esp32/relay/state", "ON");
     } else if (message == "OFF") {
       digitalWrite(RELAY_PIN, LOW);
-      client.publish("iuno/esp32/relay/state", "OFF"); // Kirim state balik ke app
-      Serial.println("Relay non-aktif (OFF)");
+      client.publish("iuno/esp32/relay/state", "OFF");
     }
   }
 }
 
+// ─── MQTT Reconnection Loop ────────────────────────────────────────
 void reconnect() {
   while (!client.connected()) {
-    Serial.print("Mencoba koneksi MQTT...");
-    String clientId = "ESP32Client-" + String(random(0xffff), HEX);
-    
+    Serial.print("Connecting to MQTT... ");
+    String clientId = "ESP32-" + String(random(0xffff), HEX);
     if (client.connect(clientId.c_str())) {
-      Serial.println("terhubung!");
-      
-      // Berlangganan topik perintah rediscover dan kontrol relay
+      Serial.println("Connected!");
       client.subscribe("iuno/device/cmd");
       client.subscribe("iuno/esp32/relay/cmd");
-      
-      // Kirim auto-discovery config saat berhasil terhubung
       publishDiscovery();
     } else {
-      Serial.print("gagal, rc=");
-      Serial.print(client.state());
-      Serial.println(" Mencoba kembali dalam 5 detik...");
+      Serial.println("Failed (rc=" + String(client.state()) + "). Retrying in 5s...");
       delay(5000);
     }
   }
 }
 
+// ─── Arduino Setup ────────────────────────────────────────────────
 void setup() {
   pinMode(RELAY_PIN, OUTPUT);
   Serial.begin(115200);
@@ -208,133 +219,205 @@ void setup() {
   client.setCallback(callback);
 }
 
+// ─── Arduino Loop ─────────────────────────────────────────────────
 void loop() {
-  if (!client.connected()) {
-    reconnect();
-  }
+  if (!client.connected()) reconnect();
   client.loop();
 
   unsigned long now = millis();
-  if (now - lastMsg > 5000) { // Kirim data sensor berkala setiap 5 detik
+  if (now - lastMsg > 5000) { // Publish sensor data every 5 seconds
     lastMsg = now;
-    
-    // Ganti nilai random di bawah ini dengan pembacaan sensor DHT22 / sensor fisik Anda yang sebenarnya
+
+    // Replace these with real DHT22 readings in production
     float temp = 24.0 + random(0, 100) / 20.0;
-    float hum = 58.0 + random(0, 100) / 10.0;
-    
-    client.publish("iuno/esp32/suhu", String(temp, 1).c_str());
-    client.publish("iuno/esp32/kelembaban", String(hum, 1).c_str());
-    
-    Serial.print("Mengirim Telemetri -> Suhu: "); Serial.print(temp);
-    Serial.print("°C | Kelembaban: "); Serial.print(hum); Serial.println("%");
+    float hum  = 58.0 + random(0, 100) / 10.0;
+
+    client.publish("iuno/esp32/temp",     String(temp, 1).c_str());
+    client.publish("iuno/esp32/humidity", String(hum, 1).c_str());
+
+    Serial.printf("Telemetry → Temp: %.1f°C | Humidity: %.1f%%\n", temp, hum);
   }
 }
 ```
 
 ---
 
-### 4. Alternatif: Koneksi ke HiveMQ Cloud (Secure TLS dengan Username & Password)
+### Option B — HiveMQ Cloud (Secure TLS with Authentication)
 
-HiveMQ Cloud adalah broker *cloud* MQTT terenkripsi yang sangat populer untuk proyek IoT berskala produksi. Karena HiveMQ Cloud menggunakan enkripsi SSL/TLS pada port **8883** dan mewajibkan autentikasi, Anda perlu memodifikasi kode ESP32 dasar di atas seperti berikut:
+HiveMQ Cloud is a popular managed cloud MQTT broker with TLS encryption on port **8883**. Use this setup for production deployments or remote access outside your local network.
 
-#### A. Ubah Import dan Inisialisasi Client
-Ganti `WiFiClient espClient` dengan `WiFiClientSecure` untuk menangani enkripsi TLS:
+**Required changes vs. Option A:**
+
+#### 1. Replace `WiFiClient` with `WiFiClientSecure`
 ```cpp
-#include <WiFi.h>
-#include <WiFiClientSecure.h> // Library bawaan ESP32 untuk koneksi aman
-#include <PubSubClient.h>
-#include <ArduinoJson.h>
+#include <WiFiClientSecure.h>  // Replaces <WiFi.h> for TLS support
 
-// Set SSL Client
-WiFiClientSecure espClient;
-PubSubClient client(espClient);
+WiFiClientSecure espClient;    // Secure client instead of plain WiFiClient
+PubSubClient     client(espClient);
 ```
 
-#### B. Sesuaikan Kredensial HiveMQ Anda
-Masukkan alamat host unik dari konsol HiveMQ Cloud Anda, gunakan port **8883**, dan tentukan Username/Password MQTT Anda:
+#### 2. Set HiveMQ Credentials
 ```cpp
-const char* mqtt_server = "xxxxxxxxxxxxxxxx.s2.eu.hivemq.cloud"; // Host HiveMQ Anda
-const int mqtt_port = 8883; // Port TLS SSL standard
-const char* mqtt_user = "username_mqtt_anda"; // Dibuat di tab credentials HiveMQ
-const char* mqtt_pass = "password_mqtt_anda";
+// Get your unique cluster host from your HiveMQ Cloud console
+const char* mqtt_server = "xxxxxxxxxxxxxxxx.s2.eu.hivemq.cloud";
+const int   mqtt_port   = 8883;  // Standard MQTT over TLS port
+const char* mqtt_user   = "your_hivemq_username";
+const char* mqtt_pass   = "your_hivemq_password";
 ```
 
-#### C. Konfigurasi Sertifikat SSL di `setup()`
-Agar ESP32 dapat bernegosiasi secara aman via SSL, tambahkan perintah `setInsecure()` pada setup untuk melewati verifikasi rantai sertifikat (sangat direkomendasikan untuk kemudahan pengujian tanpa perlu menyalin string sertifikat Root CA yang panjang):
+#### 3. Enable Insecure TLS in `setup()` (Skip Root CA Verification)
 ```cpp
 void setup() {
   pinMode(RELAY_PIN, OUTPUT);
   Serial.begin(115200);
   setup_wifi();
-  
-  // Lewati verifikasi sertifikat root (menjaga agar tetap aman tanpa repot menyalin CA certificate)
-  espClient.setInsecure(); 
-  
+
+  // Skip root certificate verification for simplicity.
+  // For production, use espClient.setCACert(root_ca) instead.
+  espClient.setInsecure();
+
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
 }
 ```
 
-#### D. Sesuaikan Fungsi `reconnect()` dengan Autentikasi
-Saat melakukan panggilan `client.connect()`, Anda harus menyertakan argumen username dan password agar diizinkan masuk oleh HiveMQ:
+#### 4. Add Credentials to `reconnect()`
 ```cpp
 void reconnect() {
   while (!client.connected()) {
-    Serial.print("Mencoba koneksi MQTT HiveMQ...");
-    String clientId = "ESP32SecureClient-" + String(random(0xffff), HEX);
-    
-    // Sertakan username dan password untuk autentikasi HiveMQ
+    Serial.print("Connecting to HiveMQ Cloud... ");
+    String clientId = "ESP32Secure-" + String(random(0xffff), HEX);
+
+    // Pass username & password for HiveMQ authentication
     if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
-      Serial.println("terhubung aman ke HiveMQ!");
-      
+      Serial.println("Securely connected!");
       client.subscribe("iuno/device/cmd");
       client.subscribe("iuno/esp32/relay/cmd");
-      
       publishDiscovery();
     } else {
-      Serial.print("gagal terhubung, rc=");
-      Serial.print(client.state());
-      Serial.println(" Mencoba kembali dalam 5 detik...");
+      Serial.println("Failed (rc=" + String(client.state()) + "). Retrying in 5s...");
       delay(5000);
     }
   }
 }
 ```
 
+> **In the Iuno app's System Settings:**
+> - Select the **HiveMQ Cloud** preset.
+> - Paste your cluster host into the **TLS Host** field.
+> - Enter the same username and password you set in your HiveMQ console.
+> - Enable the **Secure Connection (TLS)** toggle.
+
 ---
 
-## Teknologi yang Digunakan
+## 🚀 Getting Started
 
-- **Flutter / Dart** (Minimum Android API 21)
-- **GetX** (State Management, Routing, & Reactive UI)
-- **mqtt_client** (Konektivitas MQTT standar IoT)
-- **flutter_foreground_task** (Background service untuk menjaga koneksi MQTT tetap aktif)
-- **device_info_plus** (Identifikasi spesifikasi detail hardware/OS secara dinamis)
-- **url_launcher** (Membuka tautan eksternal ke browser bawaan perangkat)
-- **shared_preferences** (Penyimpanan konfigurasi broker & widget kustom secara lokal)
-- **fl_chart** (Visualisasi Grafik Data Telemetri secara *real-time*)
-- **Google Fonts** (Tipografi Space Grotesk & Outfit)
+### Prerequisites
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) ≥ 3.11
+- Android device or emulator running **API 21 (Android 5.0)** or higher
+- An MQTT broker (local Mosquitto or HiveMQ Cloud)
 
-## Cara Menjalankan Aplikasi
+### Installation
 
-1. Pastikan Anda telah menginstal [Flutter SDK](https://docs.flutter.dev/get-started/install).
-2. Kloning repositori ini:
-   ```bash
-   git clone https://github.com/WilyArd/Iuno-Project.git
-   ```
-3. Pindah ke direktori proyek:
-   ```bash
-   cd Iuno-Project
-   ```
-4. Instal semua dependensi (package):
-   ```bash
-   flutter pub get
-   ```
-5. Jalankan aplikasi di perangkat Android atau emulator:
-   ```bash
-   flutter run
-   ```
+```bash
+# 1. Clone the repository
+git clone https://github.com/WilyArd/Iuno-Project.git
 
-## Lisensi
+# 2. Enter the project directory
+cd Iuno-Project
 
-[MIT License](LICENSE) (Jika ada)
+# 3. Install Flutter dependencies
+flutter pub get
+
+# 4. Run the app on a connected Android device or emulator
+flutter run
+```
+
+### Build a Release APK (ARM64 only)
+
+To build a production-ready APK optimized for modern ARM64 Android devices:
+
+```bash
+flutter build apk --release --target-platform android-arm64
+```
+
+The output file will be at:
+```
+build/app/outputs/flutter-apk/app-release.apk
+```
+
+> Using `--target-platform android-arm64` produces a smaller APK (~20 MB) by excluding 32-bit and x86 native libraries.
+
+---
+
+## 🤖 Automated Releases with GitHub Actions
+
+This repository is configured with a GitHub Actions workflow that automatically builds and publishes an ARM64 APK to **GitHub Releases** whenever you push a new version tag.
+
+### How to Release a New Version
+
+```bash
+# 1. Create and push a new version tag (use semantic versioning)
+git tag v1.0.1-beta.1
+git push origin v1.0.1-beta.1
+```
+
+That's it. GitHub Actions will:
+1. Check out the code.
+2. Set up Java 17 and the Flutter stable SDK.
+3. Run `flutter pub get`.
+4. Build the ARM64 release APK.
+5. Create a new **GitHub Release** (marked as pre-release for beta tags) and upload `iuno-arm64-release.apk` as a downloadable asset.
+
+Monitor the build progress in the **Actions** tab of this repository.
+
+---
+
+## 🧰 Technology Stack
+
+| Package | Purpose |
+|---|---|
+| **Flutter / Dart** | Cross-platform UI framework (min Android API 21) |
+| **GetX** | State management, routing, and reactive UI |
+| **mqtt_client** | MQTT protocol client for IoT connectivity |
+| **flutter_foreground_task** | Background service to keep MQTT alive |
+| **flutter_secure_storage** | Encrypted local storage for sensitive credentials |
+| **fl_chart** | Real-time telemetry chart rendering |
+| **device_info_plus** | Dynamic hardware/OS specification detection |
+| **shared_preferences** | Local storage for broker config and custom widgets |
+| **google_fonts** | Modern typography (Space Grotesk & Outfit) |
+| **url_launcher** | Open external links in the device browser |
+| **http** | HTTP client for AI API provider requests |
+
+---
+
+## 📁 Project Structure
+
+```
+lib/
+├── core/
+│   ├── layouts/          # Main app layout (desktop + mobile)
+│   └── services/         # MQTT service & foreground task
+├── features/
+│   ├── analytics/        # Live trends and telemetry charts
+│   ├── assistant/        # AI chat assistant
+│   ├── dashboard/        # Device cards, widget grid, models
+│   ├── splash/           # Splash/loading screen
+│   └── system/           # Settings, broker config, about page
+└── main.dart             # App entry point
+```
+
+---
+
+## 🔐 Security Notes
+
+- **Cleartext traffic** is restricted to known local IP ranges (`192.168.x.x`, `10.0.0.x`, `localhost`) via Android Network Security Config.
+- **API keys and MQTT passwords** are stored using `flutter_secure_storage` (Android Keystore encryption), not in plain SharedPreferences.
+- **TLS certificate validation bypass** (`onBadCertificate`) is gated behind `kDebugMode` only and does not affect release builds.
+- **MQTT topic validation** prevents wildcard injection (`#`, `+`) in discovery payloads.
+
+---
+
+## 📄 License
+
+[MIT License](LICENSE)
