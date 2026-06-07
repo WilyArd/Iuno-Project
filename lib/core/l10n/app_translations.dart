@@ -79,7 +79,7 @@ class AppTranslations extends Translations {
     'theme_dark': 'Dark Mode',
 
     // About tile
-    'about_title': 'IUNO IoT  ·  v1.0.1-beta.1',
+    'about_title': 'IUNO IoT  ·  v1.0.1-beta.2',
     'about_view_source': 'View Source Code',
 
     // Device details
@@ -163,7 +163,7 @@ class AppTranslations extends Translations {
     'theme_dark': 'Mode Gelap',
 
     // About tile
-    'about_title': 'IUNO IoT  ·  v1.0.1-beta.1',
+    'about_title': 'IUNO IoT  ·  v1.0.1-beta.2',
     'about_view_source': 'Lihat Kode Sumber',
 
     // Device details

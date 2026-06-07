@@ -358,8 +358,8 @@ This repository is configured with a GitHub Actions workflow that automatically 
 
 ```bash
 # 1. Create and push a new version tag (use semantic versioning)
-git tag v1.0.1-beta.1
-git push origin v1.0.1-beta.1
+git tag v1.0.1-beta.2
+git push origin v1.0.1-beta.2
 ```
 
 That's it. GitHub Actions will:
