@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mqtt_service.dart';
 
@@ -19,6 +20,11 @@ void mqttForegroundServiceCallback() {
 class MqttForegroundTaskHandler extends TaskHandler {
   MqttService? _mqttService;
   bool _isConnected = false;
+
+  // [BUGFIX] MQTT credentials are saved to FlutterSecureStorage by SystemController.
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -74,8 +80,9 @@ class MqttForegroundTaskHandler extends TaskHandler {
       host = _sanitizeHost(host);
 
       final int port = prefs.getInt('mqtt_port') ?? 1883;
-      final String username = prefs.getString('mqtt_username') ?? '';
-      final String password = prefs.getString('mqtt_password') ?? '';
+      // [BUGFIX] Credentials are stored in FlutterSecureStorage, not SharedPreferences.
+      final String username = await _secureStorage.read(key: 'mqtt_username') ?? '';
+      final String password = await _secureStorage.read(key: 'mqtt_password') ?? '';
 
       _mqttService = MqttService();
       _mqttService!.setup(

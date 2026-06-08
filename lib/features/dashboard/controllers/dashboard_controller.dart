@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,6 +14,12 @@ import '../models/device_widget_model.dart';
 
 class DashboardController extends GetxController with WidgetsBindingObserver {
   final mqttService = MqttService();
+
+  // [BUGFIX] MQTT credentials are stored in FlutterSecureStorage by SystemController.
+  // We must read from the same source here, not SharedPreferences.
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   // Variabel reactive (observable) untuk UI
   var isBrokerConnected = false.obs;
@@ -468,8 +475,10 @@ class DashboardController extends GetxController with WidgetsBindingObserver {
     }
 
     final int port = prefs.getInt('mqtt_port') ?? 1883;
-    final String username = prefs.getString('mqtt_username') ?? '';
-    final String password = prefs.getString('mqtt_password') ?? '';
+    // [BUGFIX] Credentials are saved to FlutterSecureStorage by SystemController.
+    // Reading from SharedPreferences here would always return null in release builds.
+    final String username = await _secureStorage.read(key: 'mqtt_username') ?? '';
+    final String password = await _secureStorage.read(key: 'mqtt_password') ?? '';
 
     // [M-1 FIX] Debug info hanya tampil saat mode debug
     debugPrint('MQTT DEBUG: host="$host" port=$port secure=$secure');
