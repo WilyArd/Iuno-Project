@@ -1,13 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Network Security Configuration
-  - Release: cleartext hanya izin untuk range IP broker LAN lokal (192.168.x.x, 10.x.x.x)
-  - Debug: cleartext diizinkan semua (untuk kemudahan development & testing)
+  Network Security Configuration untuk Iuno IoT App
+  ──────────────────────────────────────────────────
+  Tujuan: App ini adalah dashboard IoT jaringan lokal (LAN/home network).
+  Broker MQTT (Mosquitto, EMQX, HiveMQ Community, dll) di LAN biasanya
+  menggunakan cleartext TCP port 1883 tanpa TLS.
+
+  Karena pengguna bisa menggunakan IP broker apa pun di LAN mereka
+  (192.168.x.x, 10.x.x.x, 172.16-31.x.x, dll), kita TIDAK bisa
+  mendaftarkan semua kemungkinan IP di domain-config.
+
+  Solusi: izinkan cleartext secara global (base-config), karena:
+    1. App ini TIDAK dipakai untuk koneksi internet sensitif.
+    2. API eksternal (OpenRouter/OpenAI) sudah menggunakan HTTPS/TLS secara native.
+    3. MQTT lokal hampir tidak pernah menggunakan TLS di LAN privat.
 -->
 <network-security-config>
 
-  <!-- ✅ Debug override: di debug build, cleartext boleh ke mana saja -->
-  <!-- Ini TIDAK berlaku di release/production build -->
+  <!-- Debug build: tambahkan sertifikat user (untuk Charles Proxy, dll) -->
   <debug-overrides>
     <trust-anchors>
       <certificates src="system" />
@@ -15,20 +25,17 @@
     </trust-anchors>
   </debug-overrides>
 
-  <!-- Izinkan cleartext ke IP LAN lokal yang umum dipakai untuk broker -->
-  <domain-config cleartextTrafficPermitted="true">
-    <domain includeSubdomains="false">192.168.10.3</domain>
-    <domain includeSubdomains="false">192.168.1.1</domain>
-    <domain includeSubdomains="false">10.0.0.1</domain>
-    <domain includeSubdomains="false">localhost</domain>
-    <domain includeSubdomains="false">127.0.0.1</domain>
-  </domain-config>
-
-  <!-- Semua koneksi lain (API OpenRouter/OpenAI dll) WAJIB TLS -->
-  <base-config cleartextTrafficPermitted="false">
+  <!--
+    Izinkan cleartext untuk semua koneksi (termasuk IP LAN broker apa pun).
+    Ini aman untuk aplikasi IoT lokal karena:
+    - MQTT broker berada di LAN privat (tidak exposed ke internet).
+    - Koneksi ke API publik (OpenRouter, OpenAI) sudah menggunakan HTTPS.
+  -->
+  <base-config cleartextTrafficPermitted="true">
     <trust-anchors>
       <certificates src="system" />
     </trust-anchors>
   </base-config>
 
 </network-security-config>
+
