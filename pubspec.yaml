@@ -1,7 +1,7 @@
 name: iuno
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.0.1-beta.2+3
+version: 1.0.1-beta.5+6
 
 environment:
   sdk: ^3.11.4

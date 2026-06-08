@@ -103,8 +103,9 @@ class MqttService {
       recMess.payload.message,
     );
 
-    // Iterasi semua subscription yang terdaftar
-    for (final entry in _subscriptions.entries) {
+    // Iterasi semua subscription yang terdaftar (gunakan salinan map untuk menghindari ConcurrentModificationException)
+    final subscriptionsCopy = Map<String, void Function(String topic, String message)>.from(_subscriptions);
+    for (final entry in subscriptionsCopy.entries) {
       if (_topicMatches(entry.key, receivedTopic)) {
         entry.value(receivedTopic, payload);
       }

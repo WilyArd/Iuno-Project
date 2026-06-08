@@ -151,7 +151,7 @@ class SystemView extends StatelessWidget {
                       icon: Icons.info_outline_rounded,
                       iconColor: const Color(0xFF64748B),
                       title: 'About & Version',
-                      subtitle: 'IUNO IoT  ·  v1.0.1-beta.2',
+                      subtitle: 'IUNO IoT  ·  v1.0.1-beta.5',
                       isExpanded: expanded == 'Info',
                       onTap: () => _toggleTile('Info'),
                       child: _buildSystemInfoContent(),
