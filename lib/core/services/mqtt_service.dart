@@ -47,7 +47,8 @@ class MqttService {
 
   Future<bool> connect({String? username, String? password}) async {
     try {
-      debugPrint('MQTT: Attempting connect → host=${client!.server} port=${client!.port} secure=${client!.secure}');
+      // ignore: avoid_print
+      print('[MQTT] Attempting connect → host=${client!.server} port=${client!.port} secure=${client!.secure}');
       await client!.connect(username, password).timeout(
         const Duration(seconds: 15), // Longer timeout for TLS cloud connections
         onTimeout: () {
@@ -56,30 +57,36 @@ class MqttService {
         },
       );
     } on NoConnectionException catch (e) {
-      debugPrint('MQTT: NoConnectionException - $e');
+      // ignore: avoid_print
+      print('[MQTT] NoConnectionException → $e');
       client!.disconnect();
       return false;
     } on SocketException catch (e) {
-      debugPrint('MQTT: SocketException - $e');
+      // ignore: avoid_print
+      print('[MQTT] SocketException → $e');
       client!.disconnect();
       return false;
     } on TimeoutException catch (e) {
-      debugPrint('MQTT: TimeoutException - $e');
+      // ignore: avoid_print
+      print('[MQTT] TimeoutException → $e');
       return false;
     } catch (e) {
-      debugPrint('MQTT: Unknown error - ${e.runtimeType}: $e');
+      // ignore: avoid_print
+      print('[MQTT] Unknown error → ${e.runtimeType}: $e');
       client?.disconnect();
       return false;
     }
 
     if (client!.connectionStatus!.state == MqttConnectionState.connected) {
-      debugPrint('MQTT: Connected successfully!');
+      // ignore: avoid_print
+      print('[MQTT] Connected successfully! ✅');
 
       // ✅ Daftarkan SATU listener global untuk semua incoming messages
       client!.updates!.listen(_onMessage);
       return true;
     } else {
-      debugPrint('MQTT: Failed - state=${client!.connectionStatus!.state} returnCode=${client!.connectionStatus!.returnCode}');
+      // ignore: avoid_print
+      print('[MQTT] Failed ❌ state=${client!.connectionStatus!.state} returnCode=${client!.connectionStatus!.returnCode}');
       client!.disconnect();
       return false;
     }
